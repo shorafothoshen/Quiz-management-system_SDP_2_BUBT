@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
-
 class ExamInterface:
     def __init__(self, root, student_id, exam_id):
         self.root = root
@@ -569,8 +568,7 @@ class ExamInterface:
                 text=f"{score:.1f}%",
                 style="Card.TLabel",
                 font=('Segoe UI', 48, 'bold'),  
-                foreground=score_color).pack(pady=(0, 10))
-        
+                foreground=score_color).pack(pady=(0, 10))        
         # Statistics
         stats_frame = ttk.Frame(main_frame, style="Card.TFrame")
         stats_frame.pack(fill='x', pady=20)

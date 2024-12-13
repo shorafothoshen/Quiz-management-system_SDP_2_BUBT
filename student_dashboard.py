@@ -12,9 +12,9 @@ from PIL import Image, ImageTk
 import io
 
 class StudentDashboard:
-    def __init__(self, root, student_id, login_window):
+    def __init__(self, root, user_info, login_window):
         self.root = root
-        self.student_id = student_id
+        self.user_info = user_info
         self.login_window = login_window
         self.root.title("Student Dashboard")
         self.current_page = None
