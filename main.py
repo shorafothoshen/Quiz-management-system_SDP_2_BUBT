@@ -15,11 +15,11 @@ class UserTypeSelection:
         self.root.title("Student Portal")
         self.failed_attempts = 0
         self.lock_time = None
-        
+
         # Configure the window
-        self.root.state('zoomed')  # Maximize window
-        
-        # Configure colors
+        self.root.state('zoomed')
+
+        # Colors
         self.colors = {
             'bg_dark': '#0A192F',
             'sidebar': '#112240',
@@ -30,107 +30,68 @@ class UserTypeSelection:
             'text_secondary': '#8892B0',
             'hover': '#233554'
         }
-        
-        # Configure styles
+
+        # Style configuration
         self.style = ttk.Style()
         self.style.theme_use('clam')
-        
-        # Configure widget styles
         self.style.configure("Content.TFrame", background=self.colors['content'])
-        self.style.configure("Card.TFrame",
-                             background=self.colors['sidebar'],
-                             relief="flat",
-                             borderwidth=0,
-                             padding=20)
-        self.style.configure("Title.TLabel",
-                             background=self.colors['content'],
-                             foreground=self.colors['text'],
-                             font=('Segoe UI', 24, 'bold'))
-        self.style.configure("Subtitle.TLabel",
-                             background=self.colors['content'],
-                             foreground=self.colors['text_secondary'],
-                             font=('Segoe UI', 18))
-        self.style.configure("Card.TLabel",
-                             background=self.colors['sidebar'],
-                             foreground=self.colors['text'],
-                             font=('Segoe UI', 12))
-        self.style.configure("Custom.TButton",
-                             background=self.colors['accent1'],
-                             foreground=self.colors['bg_dark'],
-                             font=('Segoe UI', 11),
-                             relief="flat",
-                             borderwidth=0,
-                             padding=(10, 5))
-        self.style.map("Custom.TButton",
-                       background=[('active', self.colors['hover'])],
-                       foreground=[('active', self.colors['bg_dark'])])
-        
+        self.style.configure("Card.TFrame", background=self.colors['sidebar'], relief="flat", padding=30)
+        self.style.configure("Title.TLabel", background=self.colors['content'], foreground=self.colors['text'], font=('Segoe UI', 30, 'bold'))
+        self.style.configure("Subtitle.TLabel", background=self.colors['content'], foreground=self.colors['text_secondary'], font=('Segoe UI', 18))
+        self.style.configure("Card.TLabel", background=self.colors['sidebar'], foreground=self.colors['text'], font=('Segoe UI', 12))
+        self.style.configure("Custom.TButton", background=self.colors['accent1'], foreground=self.colors['bg_dark'], font=('Segoe UI', 14), padding=(10, 5))
+        self.style.map("Custom.TButton", background=[('active', self.colors['hover'])], foreground=[('active', self.colors['bg_dark'])])
+
         # Main container
         self.main_container = ttk.Frame(root, style="Content.TFrame")
         self.main_container.pack(fill='both', expand=True)
-        
-        # Header section
+
+        # Header
         header_frame = ttk.Frame(self.main_container, style="Content.TFrame")
-        header_frame.pack(fill='x', pady=(50, 30))
-        
-        ttk.Label(header_frame,
-                  text="Welcome to Examination System",
-                  style="Title.TLabel").pack(anchor='center')
-        
-        ttk.Label(header_frame,
-                  text="Login to continue",
-                  style="Subtitle.TLabel").pack(anchor='center', pady=10)
-        
-        # Centered User Login Card
+        header_frame.pack(fill='x', pady=(30, 20))
+        ttk.Label(header_frame, text="Welcome to Examination System", style="Title.TLabel").pack(anchor='center')
+        ttk.Label(header_frame, text="Login to continue", style="Subtitle.TLabel").pack(anchor='center', pady=10)
+
+        # Login Card
         user_card = ttk.Frame(self.main_container, style="Card.TFrame")
-        user_card.pack(pady=20, padx=150, ipadx=75, ipady=40)
-        
-        # Username Field
-        ttk.Label(user_card, text="Username:", style="Card.TLabel").pack(pady=(10, 5))
+        user_card.pack(pady=40, padx=200, ipadx=100, ipady=50)
+
+        ttk.Label(user_card, text="Username:", style="Card.TLabel").pack(pady=(10, 5), anchor='w')
         self.username_var = tk.StringVar()
-        self.username_entry = ttk.Entry(user_card, textvariable=self.username_var, font=('Segoe UI', 12))
-        self.username_entry.pack(pady=5)
-        
-        # Password Field
-        ttk.Label(user_card, text="Password:", style="Card.TLabel").pack(pady=(10, 5))
+        self.username_entry = ttk.Entry(user_card, textvariable=self.username_var, font=('Segoe UI', 14))
+        self.username_entry.pack(pady=5, fill='x', expand=True)
+
+        ttk.Label(user_card, text="Password:", style="Card.TLabel").pack(pady=(10, 5), anchor='w')
         self.password_var = tk.StringVar()
-        self.password_entry = ttk.Entry(user_card, textvariable=self.password_var, show='*', font=('Segoe UI', 12))
-        self.password_entry.pack(pady=5)
-        
-       # Login Button
-        ttk.Button(user_card, text="Login", style="Custom.TButton", command=self.verify_login).pack(pady=(10, 5))
-        
-        # Register Button
-        ttk.Button(user_card, text="Register", style="Custom.TButton", command=self.show_student_register).pack(pady=(5, 10))
+        self.password_entry = ttk.Entry(user_card, textvariable=self.password_var, show='*', font=('Segoe UI', 14))
+        self.password_entry.pack(pady=5, fill='x', expand=True)
+
+        ttk.Button(user_card, text="Login", style="Custom.TButton", command=self.verify_login).pack(pady=(20, 10), fill='x')
+        ttk.Button(user_card, text="Register", style="Custom.TButton", command=self.show_student_register).pack(pady=(10, 20), fill='x')
 
     def show_student_register(self):
         self.main_container.destroy()
         StudentRegistration(self.root)
-    
+
     def verify_login(self):
         username = self.username_var.get()
         password = self.password_var.get()
 
-        # Check if user is locked out
         if self.lock_time and time() < self.lock_time:
             remaining_time = int(self.lock_time - time())
             messagebox.showerror("Locked", f"Too many failed attempts. Try again in {remaining_time} seconds.")
             return
 
-        # Reset lock if timeout passed
         if self.lock_time and time() >= self.lock_time:
             self.failed_attempts = 0
             self.lock_time = None
 
-        # Encrypt password
         hashed_password = sha256(password.encode()).hexdigest()
 
-        # Connect to database
         conn = sqlite3.connect("exam_system.db")
         cursor = conn.cursor()
 
         try:
-            # Query database for user details
             cursor.execute("""
                 SELECT id, name, email, role
                 FROM users
@@ -139,13 +100,8 @@ class UserTypeSelection:
             user = cursor.fetchone()
 
             if user:
-                user_info = {
-                    "id": user[0],
-                    "name": user[1],
-                    "email": user[2],
-                    "role": user[3]
-                }
-                self.failed_attempts = 0  # Reset failed attempts
+                user_info = {"id": user[0], "name": user[1], "email": user[2], "role": user[3]}
+                self.failed_attempts = 0
                 self.redirect_dashboard(user_info)
             else:
                 self.failed_attempts += 1
@@ -155,10 +111,9 @@ class UserTypeSelection:
         finally:
             conn.close()
 
-    
     def handle_failed_attempts(self):
         if self.failed_attempts >= 3:
-            self.lock_time = time() + 30  # Lock for 30 seconds
+            self.lock_time = time() + 30
             messagebox.showerror("Too Many Attempts", "You have been locked out. Try again in 30 seconds.")
         else:
             remaining_attempts = 3 - self.failed_attempts
@@ -173,141 +128,38 @@ class UserTypeSelection:
             messagebox.showinfo("Teacher", f"Welcome to the Teacher Dashboard, {user_info['name']}!")
         elif user_info['role'] == "Student":
             self.main_container.destroy()
-            StudentDashboard(self.root, user_info, self)
+            StudentDashboard(self.root, user_info["id"], self)
             messagebox.showinfo("Student", f"Welcome to the Student Dashboard, {user_info['name']}!")
-
-class StudentOptions:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Student Access")
-        
-        # Main container
-        self.main_container = ttk.Frame(root, style="Content.TFrame")
-        self.main_container.pack(fill='both', expand=True)
-
-        # Header
-        header_frame = ttk.Frame(self.main_container, style="Content.TFrame")
-        header_frame.pack(fill='x', pady=(50, 30))
-        
-        ttk.Label(header_frame,
-                 text="Student Access",
-                 style="Title.TLabel").pack()
-
-        # Content frame
-        content_frame = ttk.Frame(self.main_container, style="Content.TFrame")
-        content_frame.pack(expand=True)
-
-        ttk.Label(content_frame,
-                 text="Choose an option",
-                 style="Subtitle.TLabel").pack(pady=(0, 30))
-
-        # Options frame
-        options_frame = ttk.Frame(content_frame, style="Content.TFrame")
-        options_frame.pack()
-
-        # Login option
-        login_frame = ttk.Frame(options_frame, style="Card.TFrame")
-        login_frame.pack(side='left', padx=20)
-        
-        ttk.Label(login_frame,
-                 text="Existing Student?",
-                 style="Card.TLabel").pack(pady=(0, 10))
-        
-        ttk.Button(login_frame,
-                  text="Login",
-                  style="Custom.TButton",
-                  command=self.show_login).pack()
-
-        # Registration option
-        register_frame = ttk.Frame(options_frame, style="Card.TFrame")
-        register_frame.pack(side='left', padx=20)
-        
-        ttk.Label(register_frame,
-                 text="New Student?",
-                 style="Card.TLabel").pack(pady=(0, 10))
-        
-        # Use lambda to call show_registration explicitly
-        ttk.Button(register_frame,
-                  text="Register",
-                  style="Custom.TButton",
-                  command=lambda: self.show_registration()).pack()
-
-        # Back button
-        back_frame = ttk.Frame(self.main_container, style="Content.TFrame")
-        back_frame.pack(pady=30)
-        
-        ttk.Button(back_frame,
-                  text="Back",
-                  style="Custom.TButton",
-                  command=self.go_back).pack()
-
-    def show_registration(self):
-        self.main_container.destroy()
-        StudentRegistration(self.root)
-
-    def go_back(self):
-        self.main_container.destroy()
-        UserTypeSelection(self.root)
-
 
 class StudentRegistration:
     def __init__(self, root):
         self.root = root
         self.root.title("Student Registration")
 
-        # Main container
         self.main_container = ttk.Frame(root, style="Content.TFrame")
         self.main_container.pack(fill='both', expand=True)
 
-        # Header
         header_frame = ttk.Frame(self.main_container, style="Content.TFrame")
-        header_frame.pack(fill='x', pady=(50, 30))
+        header_frame.pack(fill='x', pady=(30, 20))
 
-        ttk.Label(header_frame,
-                 text="Student Registration",
-                 style="Title.TLabel").pack()
+        ttk.Label(header_frame, text="Student Registration", style="Title.TLabel").pack()
 
-        # Content frame
-        content_frame = ttk.Frame(self.main_container, style="Content.TFrame")
-        content_frame.pack(expand=True)
+        user_card = ttk.Frame(self.main_container, style="Card.TFrame")
+        user_card.pack(pady=40, padx=200, ipadx=100, ipady=50)
 
-        # Registration fields
-        fields = [
-            ("Username:", 0),
-            ("Password:", 1),
-            ("Email:", 2),
-            ("Full Name:", 3),
-            ("Class:", 4)
-        ]
-
+        fields = ["Username:", "Password:", "Email:", "Full Name:", "Class:"]
         self.entries = {}
 
-        for label_text, row in fields:
-            ttk.Label(content_frame,
-                     text=label_text,
-                     style="Subtitle.TLabel").grid(row=row, column=0, padx=10, pady=10, sticky='w')
-            if label_text == "Password:":
-                entry = ttk.Entry(content_frame, show="*")
-            else:
-                entry = ttk.Entry(content_frame)
-            entry.grid(row=row, column=1, padx=10, pady=10)
-            self.entries[label_text] = entry
+        for field in fields:
+            ttk.Label(user_card, text=field, style="Card.TLabel").pack(pady=(10, 5), anchor='w')
+            entry = ttk.Entry(user_card, font=('Segoe UI', 14))
+            if field == "Password:":
+                entry.config(show="*")
+            entry.pack(pady=5, fill='x', expand=True)
+            self.entries[field] = entry
 
-        # Button frame
-        button_frame = ttk.Frame(content_frame, style="Content.TFrame")
-        button_frame.grid(row=5, column=0, columnspan=2, padx=10, pady=20)
-
-        # Register button
-        ttk.Button(button_frame,
-                  text="Register",
-                  style="Custom.TButton",
-                  command=self.register).pack(side='left', padx=10)
-
-        # Back button
-        ttk.Button(button_frame,
-                  text="Back",
-                  style="Custom.TButton",
-                  command=self.go_back).pack(side='left', padx=10)
+        ttk.Button(user_card, text="Register", style="Custom.TButton", command=self.register).pack(pady=(20, 10), fill='x')
+        ttk.Button(user_card, text="Back", style="Custom.TButton", command=self.go_back).pack(pady=(10, 20), fill='x')
 
     def register(self):
         username = self.entries["Username:"].get()

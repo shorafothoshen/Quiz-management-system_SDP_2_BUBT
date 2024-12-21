@@ -12,9 +12,9 @@ from PIL import Image, ImageTk
 import io
 
 class StudentDashboard:
-    def __init__(self, root, user_info, login_window):
+    def __init__(self, root, student_id, login_window):
         self.root = root
-        self.user_info = user_info
+        self.student_id = student_id
         self.login_window = login_window
         self.root.title("Student Dashboard")
         self.current_page = None
@@ -104,12 +104,22 @@ class StudentDashboard:
         self.create_menu_button("📊 My Results", self.show_results)
         self.create_menu_button("👤 My Profile", self.show_profile)
         
-        # Get student info for profile section
+        # Get student info for profile section (with additional details)
         conn = sqlite3.connect('exam_system.db')
         cursor = conn.cursor()
-        cursor.execute("SELECT name, class FROM students WHERE id=?", (student_id,))
+
+        # Fetch student info from both users and students tables
+        cursor.execute('''
+        SELECT u.name, u.email,s.class, s.phone, s.profile_pic, s.bio 
+        FROM users u
+        JOIN students s ON u.id = s.id
+        WHERE u.id = ?
+        ''', (student_id,))
+
         self.student_info = cursor.fetchone()
+
         conn.close()
+
         
         # Profile section at bottom of menu
         profile_frame = ttk.Frame(self.menu_frame, style="Menu.TFrame")
@@ -138,6 +148,7 @@ class StudentDashboard:
         
         # Initialize with available exams view
         self.show_available_exams()
+        
     
     def create_menu_button(self, text, command):
         btn = ttk.Button(self.menu_frame,
@@ -170,8 +181,16 @@ class StudentDashboard:
         cursor = conn.cursor()
         
         try:
-            cursor.execute("SELECT name, class FROM students WHERE id = ?", (self.student_id,))
+            # Corrected query to fetch student information
+            cursor.execute("""
+            SELECT u.name, s.class 
+            FROM users u
+            JOIN students s ON u.id = s.id
+            WHERE u.id = ?
+            """, (self.student_id,))
+
             student_info = cursor.fetchone()
+            print(student_info)
             
             if student_info:
                 info_frame = ttk.Frame(self.current_page, style="Card.TFrame")
@@ -200,7 +219,7 @@ class StudentDashboard:
             ).pack(pady=10)
 
             # Create Treeview for exams
-            columns = ('Title', 'Duration', 'Total Marks')
+            columns = ('Title', 'Subject', 'Duration', 'Total Marks')
             self.timeline_tree = ttk.Treeview(timeline_frame, columns=columns, show='headings', style="Timeline.Treeview")
             
             # Configure columns
@@ -213,13 +232,13 @@ class StudentDashboard:
             try:
                 # Fetch and display upcoming exams
                 cursor.execute("""
-                    SELECT title, duration, total_marks 
-                    FROM exams 
-                    WHERE id NOT IN (
-                        SELECT exam_id 
-                        FROM results 
-                        WHERE student_id = ?
-                    )
+                SELECT e.title, e.subject, e.duration, e.total_marks
+                FROM exams e
+                WHERE e.id NOT IN (
+                    SELECT r.exam_id
+                    FROM results r
+                    WHERE r.student_id = ?
+                )
                 """, (self.student_id,))
                 
                 upcoming_exams = cursor.fetchall()
@@ -228,15 +247,16 @@ class StudentDashboard:
                     for exam in upcoming_exams:
                         self.timeline_tree.insert('', 'end', values=exam)
                 else:
-                    self.timeline_tree.insert('', 'end', values=('No upcoming exams', '', ''))
+                    self.timeline_tree.insert('', 'end', values=('No upcoming exams', '', '', ''))
                     
             except sqlite3.OperationalError:
-                self.timeline_tree.insert('', 'end', values=('No exams available', '', ''))
+                self.timeline_tree.insert('', 'end', values=('No exams available', '', '', ''))
                 
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred: {str(e)}")
         finally:
             conn.close()
+
     
     def show_available_exams(self):
         self.clear_current_page()
@@ -342,6 +362,7 @@ class StudentDashboard:
             exams = cursor.fetchall()
             
             if not exams:
+                # If no available exams, show this message
                 self.exam_tree.insert('', 'end', values=(
                     "-",
                     "No available exams",
@@ -359,11 +380,13 @@ class StudentDashboard:
                     subject,
                     duration
                 ))
-            
+        
         except sqlite3.Error as e:
+            # Display a message box if a database error occurs
             messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
         finally:
             conn.close()
+
     
     def show_results(self):
         self.clear_current_page()
@@ -426,10 +449,11 @@ class StudentDashboard:
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                SELECT r.id, s.name, e.title, r.score, r.date
+                SELECT r.id, u.name, e.title, r.score, r.date
                 FROM results r
                 JOIN students s ON r.student_id = s.id
                 JOIN exams e ON r.exam_id = e.id
+                JOIN users u ON s.id = u.id  -- Join with users table to get the name
                 WHERE r.student_id = ?
                 ORDER BY r.date DESC
             """, (self.student_id,))
@@ -458,6 +482,7 @@ class StudentDashboard:
             self.results_tree.insert('', 'end', values=('--', 'Error loading results', '--', '--', '--'))
         finally:
             conn.close()
+
     
     def show_profile(self):
         self.clear_current_page()
@@ -473,16 +498,16 @@ class StudentDashboard:
         header_frame.pack(fill='x', pady=(0, 20))
         
         ttk.Label(header_frame,
-                 text="My Profile",
-                 font=('Segoe UI', 24, 'bold'),
-                 foreground=self.colors['text'],
-                 background=self.colors['content_bg']).pack(side='left')
+                text="My Profile",
+                font=('Segoe UI', 24, 'bold'),
+                foreground=self.colors['text'],
+                background=self.colors['content_bg']).pack(side='left')
         
         # Edit button
         ttk.Button(header_frame,
-                  text="✏️ Edit Profile",
-                  style="Custom.TButton",
-                  command=self.edit_profile).pack(side='right')
+                text="✏️ Edit Profile",
+                style="Custom.TButton",
+                command=self.edit_profile).pack(side='right')
         
         # Create two columns
         columns_frame = ttk.Frame(profile_container, style="Content.TFrame")
@@ -499,49 +524,45 @@ class StudentDashboard:
         # Try to load and display profile picture
         conn = sqlite3.connect('exam_system.db')
         cursor = conn.cursor()
-        cursor.execute("SELECT profile_pic FROM students WHERE id=?", (self.student_id,))
+        
+        # Fetch profile picture from `students` table based on logged-in user
+        cursor.execute("""
+            SELECT students.profile_pic 
+            FROM students 
+            JOIN users ON students.id = users.id
+            WHERE users.id = ?
+        """, (self.student_id,))
         result = cursor.fetchone()
         
         if result and result[0]:
-            # Convert binary data to image
             try:
                 image_data = io.BytesIO(result[0])
                 pil_image = Image.open(image_data)
-                
-                # Resize image while maintaining aspect ratio
                 target_size = (200, 200)
                 pil_image.thumbnail(target_size, Image.Resampling.LANCZOS)
-                
-                # Convert PIL image to PhotoImage
                 photo = ImageTk.PhotoImage(pil_image)
-                
-                # Store the photo as an attribute to prevent garbage collection
                 self.profile_photo = photo
-                
-                # Create and pack the label with the image
                 image_label = ttk.Label(pic_frame, image=photo, background=self.colors['menu_bg'])
                 image_label.pack(padx=10, pady=10)
             except Exception as e:
-                # If there's an error loading the image, show default icon
                 ttk.Label(pic_frame,
-                         text="👤",
-                         font=('Segoe UI', 48),
-                         foreground=self.colors['text'],
-                         background=self.colors['menu_bg']).pack(padx=40, pady=40)
+                        text="👤",
+                        font=('Segoe UI', 48),
+                        foreground=self.colors['text'],
+                        background=self.colors['menu_bg']).pack(padx=40, pady=40)
         else:
-            # Show default icon if no image is set
             ttk.Label(pic_frame,
-                     text="👤",
-                     font=('Segoe UI', 48),
-                     foreground=self.colors['text'],
-                     background=self.colors['menu_bg']).pack(padx=40, pady=40)
+                    text="👤",
+                    font=('Segoe UI', 48),
+                    foreground=self.colors['text'],
+                    background=self.colors['menu_bg']).pack(padx=40, pady=40)
         
         conn.close()
         
         ttk.Button(left_column,
-                  text="Upload Photo",
-                  style="Custom.TButton",
-                  command=self.upload_profile_pic).pack(pady=10)
+                text="Upload Photo",
+                style="Custom.TButton",
+                command=self.upload_profile_pic).pack(pady=10)
         
         # Right column - Profile Information
         right_column = ttk.Frame(columns_frame, style="Card.TFrame")
@@ -552,17 +573,17 @@ class StudentDashboard:
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                SELECT name, class, email, phone, bio 
+                SELECT users.name, students.class, users.email, students.phone, students.bio 
                 FROM students 
-                WHERE id=?""", (self.student_id,))
+                JOIN users ON students.id = users.id
+                WHERE users.id = ?
+            """, (self.student_id,))
             student_info = cursor.fetchone()
             
             if student_info:
-                # Profile information
                 info_frame = ttk.Frame(right_column, style="Card.TFrame")
                 info_frame.pack(fill='both', expand=True, padx=20, pady=20)
                 
-                # Helper function to create info rows
                 def create_info_row(label_text, value, row):
                     ttk.Label(info_frame,
                             text=label_text,
@@ -576,13 +597,11 @@ class StudentDashboard:
                             foreground=self.colors['text'],
                             background=self.colors['menu_bg']).grid(row=row, column=1, sticky='w', padx=20, pady=10)
                 
-                # Display profile information
                 create_info_row("Full Name:", student_info[0], 0)
                 create_info_row("Class:", student_info[1], 1)
                 create_info_row("Email:", student_info[2], 2)
                 create_info_row("Phone:", student_info[3], 3)
                 
-                # Bio section
                 ttk.Label(info_frame,
                         text="About Me:",
                         font=('Segoe UI', 12, 'bold'),
@@ -596,18 +615,18 @@ class StudentDashboard:
                         foreground=self.colors['text'],
                         background=self.colors['menu_bg'],
                         wraplength=400).grid(row=5, column=0, columnspan=2, sticky='w', pady=10)
-                
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred: {str(e)}")
         finally:
             conn.close()
+
     
     def edit_profile(self):
         # Create a new top-level window for editing
         edit_window = tk.Toplevel(self.root)
         edit_window.title("Edit Profile")
         edit_window.configure(bg=self.colors['content_bg'])
-        
+
         # Center the window
         window_width = 500
         window_height = 600
@@ -616,94 +635,118 @@ class StudentDashboard:
         x = (screen_width - window_width) // 2
         y = (screen_height - window_height) // 2
         edit_window.geometry(f"{window_width}x{window_height}+{x}+{y}")
-        
+
         # Main container
         main_frame = ttk.Frame(edit_window, style="Content.TFrame")
         main_frame.pack(fill='both', expand=True, padx=20, pady=20)
-        
+
         # Header
         ttk.Label(main_frame,
-                 text="Edit Profile",
-                 font=('Segoe UI', 20, 'bold'),
-                 foreground=self.colors['text'],
-                 background=self.colors['content_bg']).pack(pady=(0,20))
-        
+                text="Edit Profile",
+                font=('Segoe UI', 20, 'bold'),
+                foreground=self.colors['text'],
+                background=self.colors['content_bg']).pack(pady=(0, 20))
+
         # Form frame
         form_frame = ttk.Frame(main_frame, style="Card.TFrame")
         form_frame.pack(fill='both', expand=True, padx=20, pady=20)
-        
+
         # Get current profile data
         conn = sqlite3.connect('exam_system.db')
         cursor = conn.cursor()
-        cursor.execute("SELECT name, class, email, phone, bio FROM students WHERE id=?", (self.student_id,))
-        student_info = cursor.fetchone()
-        conn.close()
-        
+        try:
+            cursor.execute("""
+                SELECT users.name, students.class, users.email, students.phone, students.bio
+                FROM students
+                JOIN users ON students.id = users.id
+                WHERE students.id = ?
+            """, (self.student_id,))
+            student_info = cursor.fetchone()
+        finally:
+            conn.close()
+
         # Create form fields
         def create_field(label_text, row, default_value="", is_text_area=False):
             ttk.Label(form_frame,
                     text=label_text,
                     font=('Segoe UI', 11),
                     foreground=self.colors['text'],
-                    background=self.colors['menu_bg']).grid(row=row, column=0, sticky='w', pady=(10,5))
-            
+                    background=self.colors['menu_bg']).grid(row=row, column=0, sticky='w', pady=(10, 5))
+
             if is_text_area:
                 text_widget = tk.Text(form_frame, height=4, width=40)
-                text_widget.grid(row=row+1, column=0, sticky='ew', pady=(0,10))
+                text_widget.grid(row=row + 1, column=0, sticky='ew', pady=(0, 10))
                 text_widget.insert('1.0', default_value if default_value else "")
                 return text_widget
             else:
                 var = tk.StringVar(value=default_value if default_value else "")
                 entry = ttk.Entry(form_frame, textvariable=var, width=40)
-                entry.grid(row=row+1, column=0, sticky='ew', pady=(0,10))
+                entry.grid(row=row + 1, column=0, sticky='ew', pady=(0, 10))
                 return var
-        
+
         # Create form fields with current values
         name_var = create_field("Full Name", 0, student_info[0])
         class_var = create_field("Class", 2, student_info[1])
         email_var = create_field("Email", 4, student_info[2])
         phone_var = create_field("Phone", 6, student_info[3])
         bio_text = create_field("About Me", 8, student_info[4], True)
-        
+
         def save_changes():
             try:
                 conn = sqlite3.connect('exam_system.db')
                 cursor = conn.cursor()
+
+                # Update the `users` table
                 cursor.execute("""
-                    UPDATE students 
-                    SET name=?, class=?, email=?, phone=?, bio=?
-                    WHERE id=?
+                    UPDATE users
+                    SET name = COALESCE(?, name), email = COALESCE(?, email)
+                    WHERE id = (
+                        SELECT id FROM students WHERE id = ?
+                    )
                 """, (
-                    name_var.get(),
-                    class_var.get(),
-                    email_var.get(),
-                    phone_var.get(),
-                    bio_text.get('1.0', 'end-1c'),
+                    name_var.get() if name_var.get().strip() else None,
+                    email_var.get() if email_var.get().strip() else None,
                     self.student_id
                 ))
+
+                # Update the `students` table
+                cursor.execute("""
+                    UPDATE students
+                    SET class = COALESCE(?, class), phone = COALESCE(?, phone), bio = COALESCE(?, bio)
+                    WHERE id = ?
+                """, (
+                    class_var.get() if class_var.get().strip() else None,
+                    phone_var.get() if phone_var.get().strip() else None,
+                    bio_text.get('1.0', 'end-1c').strip() if bio_text.get('1.0', 'end-1c').strip() else None,
+                    self.student_id
+                ))
+
                 conn.commit()
                 conn.close()
-                
+
                 messagebox.showinfo("Success", "Profile updated successfully!")
                 edit_window.destroy()
                 self.show_profile()  # Refresh the profile view
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to update profile: {str(e)}")
-        
+
         # Buttons
         button_frame = ttk.Frame(main_frame, style="Content.TFrame")
-        button_frame.pack(fill='x', pady=20)
-        
-        ttk.Button(button_frame,
-                  text="Save Changes",
-                  style="Custom.TButton",
-                  command=save_changes).pack(side='right', padx=5)
-        
-        ttk.Button(button_frame,
-                  text="Cancel",
-                  style="Custom.TButton",
-                  command=edit_window.destroy).pack(side='right', padx=5)
-    
+        button_frame.pack(fill='x', pady=(10, 0), anchor='n')  # Adjust padding for better positioning
+
+        # Add buttons with proper alignment
+        cancel_button = ttk.Button(button_frame,
+                                    text="Cancel",
+                                    style="Custom.TButton",
+                                    command=edit_window.destroy)
+        cancel_button.pack(side="left", padx=(50, 10), pady=5)  # Left aligned
+
+        save_button = ttk.Button(button_frame,
+                                text="Save Changes",
+                                style="Custom.TButton",
+                                command=save_changes)
+        save_button.pack(side="right", padx=(10, 50), pady=5)  # Right aligned
+
     def upload_profile_pic(self):
         file_path = filedialog.askopenfilename(
             title="Select Profile Picture",

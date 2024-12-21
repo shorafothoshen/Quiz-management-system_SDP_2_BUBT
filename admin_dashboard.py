@@ -407,6 +407,31 @@ class AdminDashboard:
         # Load exams
         self.refresh_exam_list()
     
+    def refresh_exam_list(self):
+        # Connect to the database
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+
+        # Fetch exams data
+        cursor.execute('''
+        SELECT exams.id, exams.title, exams.subject, exams.duration, users.name
+        FROM exams
+        LEFT JOIN users ON exams.created_by = users.id
+        ''')
+        exams = cursor.fetchall()
+
+        # Clear the existing items in the Treeview
+        for item in self.exam_tree.get_children():
+            self.exam_tree.delete(item)
+
+        # Insert the fetched data into the Treeview
+        for exam in exams:
+            self.exam_tree.insert('', 'end', values=exam)
+
+        # Close the database connection
+        conn.close()
+
+    
     def show_questions_page(self):
         if self.current_page == "questions":
             return
