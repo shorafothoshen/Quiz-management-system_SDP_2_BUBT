@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox,simpledialog
 import sqlite3
 from datetime import datetime
+import hashlib
 from tkinter import StringVar
 
 
@@ -75,7 +76,7 @@ class AdminDashboard:
         
         # Navigation buttons
         self.create_nav_button("👥 Manage Students", self.show_students_page)
-        self.create_nav_button("👥 Manage Teacher", self.show_students_page)
+        self.create_nav_button("👥 Manage Teacher", self.show_teachers_page)
         self.create_nav_button("📝 Manage Exams", self.show_exams_page)
         self.create_nav_button("❓ Manage Questions", self.show_questions_page)
         self.create_nav_button("📊 View Results", self.show_results_page)
@@ -138,6 +139,9 @@ class AdminDashboard:
         button_frame = ttk.Frame(page_frame)
         button_frame.pack(pady=20)
 
+        add_button = ttk.Button(button_frame, text="Add Student", command=self.show_add_student_page)
+        add_button.pack(side='left', padx=10)
+
         edit_button = ttk.Button(button_frame, text="Edit Student", command=self.edit_student)
         edit_button.pack(side='left', padx=10)
 
@@ -145,7 +149,6 @@ class AdminDashboard:
         delete_button.pack(side='left', padx=10)
 
         self.refresh_student_list()
-
 
     def refresh_student_list(self):
         # Clear existing data
@@ -169,6 +172,108 @@ class AdminDashboard:
             self.student_tree.insert("", "end", values=student)
 
         conn.close()
+
+    def show_add_student_page(self):
+        # Clear existing content
+        self.clear_content()
+        self.current_page = "add_student"
+
+        # Create Add Student Frame
+        add_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        add_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # Header
+        ttk.Label(add_frame,
+                text="Add New Student",
+                font=("Segoe UI", 24, "bold"),
+                foreground=self.colors['text']).pack(pady=(0, 20))
+
+        # Input fields
+        name_var = StringVar()
+        username_var = StringVar()
+        email_var = StringVar()
+        password_var = StringVar()
+        class_var = StringVar()
+        phone_var = StringVar()
+
+        ttk.Label(add_frame, text="Name:", font=("Segoe UI", 12)).pack(pady=(10, 5))
+        ttk.Entry(add_frame, textvariable=name_var, width=40).pack(pady=(0, 10))
+
+        ttk.Label(add_frame, text="Username:", font=("Segoe UI", 12)).pack(pady=(10, 5))
+        ttk.Entry(add_frame, textvariable=username_var, width=40).pack(pady=(0, 10))
+
+        ttk.Label(add_frame, text="Email:", font=("Segoe UI", 12)).pack(pady=(10, 5))
+        ttk.Entry(add_frame, textvariable=email_var, width=40).pack(pady=(0, 10))
+
+        ttk.Label(add_frame, text="Password:", font=("Segoe UI", 12)).pack(pady=(10, 5))
+        ttk.Entry(add_frame, textvariable=password_var, show="*", width=40).pack(pady=(0, 10))
+
+        ttk.Label(add_frame, text="Class:", font=("Segoe UI", 12)).pack(pady=(10, 5))
+        ttk.Entry(add_frame, textvariable=class_var, width=40).pack(pady=(0, 10))
+
+        ttk.Label(add_frame, text="Phone:", font=("Segoe UI", 12)).pack(pady=(10, 5))
+        ttk.Entry(add_frame, textvariable=phone_var, width=40).pack(pady=(0, 10))
+
+        # Add Button
+        add_button = ttk.Button(add_frame, text="Add Student",
+                                command=lambda: self.add_student_to_database(
+                                    name_var, username_var, email_var, password_var, class_var, phone_var))
+        add_button.pack(pady=20)
+
+        # Back Button
+        back_button = ttk.Button(add_frame, text="Back", command=self.show_students_page)
+        back_button.pack(pady=10)
+
+
+    def add_student_to_database(self, name_var, username_var, email_var, password_var, class_var, phone_var):
+        name = name_var.get().strip()
+        username = username_var.get().strip()
+        email = email_var.get().strip()
+        password = password_var.get().strip()
+        class_name = class_var.get().strip()
+        phone = phone_var.get().strip()
+
+        # Validation
+        if not name or not username or not email or not password or not class_name or not phone:
+            messagebox.showerror("Error", "All fields are required!")
+            return
+
+        # Hash the password using hashlib
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+
+        # Insert data into database
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+
+        try:
+            # Insert into users table
+            cursor.execute('''
+                INSERT INTO users (username, name, email, password, role)
+                VALUES (?, ?, ?, ?, 'Student')
+            ''', (username, name, email, hashed_password))
+
+            # Get the last inserted user ID
+            user_id = cursor.lastrowid
+
+            # Insert into students table
+            cursor.execute('''
+                INSERT INTO students (id, class, phone)
+                VALUES (?, ?, ?)
+            ''', (user_id, class_name, phone))
+
+            conn.commit()
+            messagebox.showinfo("Success", "New student added successfully!")
+            
+            # Return to the student list page
+            self.show_students_page()
+
+        except sqlite3.IntegrityError:
+            messagebox.showerror("Error", "Username must be unique!")
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
+        finally:
+            conn.close()
+
 
 
     def edit_student(self):
@@ -308,6 +413,241 @@ class AdminDashboard:
             self.refresh_student_list()
             messagebox.showinfo("Success", "Student deleted successfully.")
     
+    def show_teachers_page(self):
+        if self.current_page == "teachers":
+            return
+        self.current_page = "teachers"
+        self.clear_content()  # Clear the current content before loading the page
+
+        # Create teachers page content
+        page_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        page_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+        # Header
+        ttk.Label(page_frame,
+                text="Manage Teachers",
+                font=('Segoe UI', 24, 'bold'),
+                foreground=self.colors['text'],
+                background=self.colors['content']).pack(pady=(0, 20))
+
+        # Teacher list
+        self.teacher_tree = ttk.Treeview(page_frame,
+                                        columns=("ID", "Username", "Name", "Phone","Subject"),
+                                        show="headings",
+                                        style="Treeview")
+        self.teacher_tree.heading("ID", text="ID")
+        self.teacher_tree.heading("Username", text="Username")
+        self.teacher_tree.heading("Name", text="Name")
+        self.teacher_tree.heading("Phone", text="Phone")
+        self.teacher_tree.heading("Subject", text="Subject")
+        self.teacher_tree.pack(pady=10, expand=True, fill='both')
+
+        # Add buttons for Add, Edit, and Delete
+        button_frame = ttk.Frame(page_frame)
+        button_frame.pack(pady=20)
+
+        add_button = ttk.Button(button_frame, text="Add Teacher", command=self.show_add_teacher_page)
+        add_button.pack(side='left', padx=10)
+
+        edit_button = ttk.Button(button_frame, text="Edit Teacher", command=self.edit_teacher)
+        edit_button.pack(side='left', padx=10)
+
+        delete_button = ttk.Button(button_frame, text="Delete Teacher", command=self.delete_teacher)
+        delete_button.pack(side='left', padx=10)
+
+        self.refresh_teacher_list()
+
+    def refresh_teacher_list(self):
+        # Clear existing data
+        for row in self.teacher_tree.get_children():
+            self.teacher_tree.delete(row)
+
+        # Fetch teachers from the database
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT u.id, u.username, u.name, t.phone,t.subject
+            FROM users u
+            JOIN teachers t ON u.id = t.id
+            WHERE u.role = 'Teacher'
+        ''')
+
+        teachers = cursor.fetchall()
+
+        for teacher in teachers:
+            self.teacher_tree.insert("", "end", values=teacher)
+
+        conn.close()
+
+    def show_add_teacher_page(self):
+        self.clear_content()  # Clear the current content before showing Add Teacher page
+
+        # Create add teacher page content
+        page_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        page_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+        # Header
+        ttk.Label(page_frame,
+                text="Add New Teacher",
+                font=('Segoe UI', 24, 'bold'),
+                foreground=self.colors['text'],
+                background=self.colors['content']).pack(pady=(0, 20))
+
+        # Input fields
+        form_frame = ttk.Frame(page_frame, style="Content.TFrame")
+        form_frame.pack(pady=20)
+
+        fields = ["Name", "Username", "Email", "Password", "Phone","Subject"]
+        entries = {}
+
+        for field in fields:
+            label = ttk.Label(form_frame, text=field, font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content'])
+            label.pack(anchor='w', pady=5)
+
+            entry = ttk.Entry(form_frame, font=('Segoe UI', 12))
+            entry.pack(fill='x', pady=5)
+            entries[field] = entry
+
+        # Add button
+        add_button = ttk.Button(page_frame, text="Save", command=lambda: self.add_teacher_to_database(entries))
+        add_button.pack(pady=20)
+
+        back_button = ttk.Button(page_frame, text="Back", command=self.show_teachers_page)  # Going back to teacher list
+        back_button.pack(pady=20)
+
+    def edit_teacher(self):
+        selected_item = self.teacher_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select a teacher to edit!")
+            return
+
+        teacher_id = self.teacher_tree.item(selected_item, 'values')[0]
+
+        # Clear current content and show edit page
+        self.clear_content()
+
+        # Create edit page content
+        page_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        page_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+        # Header
+        ttk.Label(page_frame,
+                text="Edit Teacher",
+                font=('Segoe UI', 24, 'bold'),
+                foreground=self.colors['text'],
+                background=self.colors['content']).pack(pady=(0, 20))
+
+        # Fetch teacher details
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+        cursor.execute('SELECT u.name, u.username, u.email, t.phone, t.subject FROM users u JOIN teachers t ON u.id = t.id WHERE u.id = ?', (teacher_id,))
+        teacher_data = cursor.fetchone()
+        conn.close()
+
+        if not teacher_data:
+            messagebox.showerror("Error", "Unable to fetch teacher details!")
+            return
+
+        fields = ["Name", "Username", "Email", "Phone","Subject"]
+        entries = {}
+
+        form_frame = ttk.Frame(page_frame, style="Content.TFrame")
+        form_frame.pack(pady=20)
+
+        for i, field in enumerate(fields):
+            label = ttk.Label(form_frame, text=field, font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content'])
+            label.pack(anchor='w', pady=5)
+
+            entry = ttk.Entry(form_frame, font=('Segoe UI', 12))
+            entry.insert(0, teacher_data[i])
+            entry.pack(fill='x', pady=5)
+            entries[field] = entry
+
+        # Save button
+        save_button = ttk.Button(page_frame, text="Save Changes", command=lambda: self.save_teacher_changes(teacher_id, entries))
+        save_button.pack(pady=20)
+
+        back_button = ttk.Button(page_frame, text="Back", command=self.show_teachers_page)  # Going back to teacher list
+        back_button.pack(pady=20)
+
+
+    def save_teacher_changes(self, teacher_id, entries):
+        name = entries['Name'].get().strip()
+        username = entries['Username'].get().strip()
+        email = entries['Email'].get().strip()
+        phone = entries['Phone'].get().strip()
+        subject = entries['Subject'].get().strip()
+
+        if not name or not username or not email or not phone or not subject:
+            messagebox.showerror("Error", "All fields are required!")
+            return
+
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+
+        try:
+            # Update users table
+            cursor.execute('''
+                UPDATE users
+                SET name = ?, username = ?, email = ?
+                WHERE id = ?
+            ''', (name, username, email, teacher_id))
+
+            # Update teachers table
+            cursor.execute('''
+                UPDATE teachers
+                SET phone = ?
+                subject = ?
+                WHERE id = ?
+            ''', (phone,subject, teacher_id))
+
+            conn.commit()
+            messagebox.showinfo("Success", "Teacher details updated successfully!")
+            self.show_teachers_page()
+
+        except sqlite3.IntegrityError:
+            messagebox.showerror("Error", "Username or email must be unique!")
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
+        finally:
+            conn.close()
+
+
+
+    def delete_teacher(self):
+        selected_item = self.teacher_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select a teacher to delete!")
+            return
+
+        teacher_id = self.teacher_tree.item(selected_item, 'values')[0]
+
+        # Confirm delete
+        confirm = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this teacher?")
+        if not confirm:
+            return
+
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+
+        try:
+            # Delete from teachers table
+            cursor.execute('''DELETE FROM teachers WHERE id = ?''', (teacher_id,))
+
+            # Delete from users table
+            cursor.execute('''DELETE FROM users WHERE id = ?''', (teacher_id,))
+
+            conn.commit()
+            messagebox.showinfo("Success", "Teacher deleted successfully!")
+            self.refresh_teacher_list()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
+        finally:
+            conn.close()
+
+
     def show_exams_page(self):
         if self.current_page == "exams":
             return

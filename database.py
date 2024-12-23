@@ -29,7 +29,7 @@ def create_database():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS teachers (
         id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
+        phone TEXT,
         subject TEXT NOT NULL,
         FOREIGN KEY (id) REFERENCES users (id) ON DELETE CASCADE
     )''')
