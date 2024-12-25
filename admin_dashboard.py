@@ -508,13 +508,64 @@ class AdminDashboard:
             entry = ttk.Entry(form_frame, font=('Segoe UI', 12))
             entry.pack(fill='x', pady=5)
             entries[field] = entry
-
+        
         # Add button
         add_button = ttk.Button(page_frame, text="Save", command=lambda: self.add_teacher_to_database(entries))
         add_button.pack(pady=20)
 
         back_button = ttk.Button(page_frame, text="Back", command=self.show_teachers_page)  # Going back to teacher list
         back_button.pack(pady=20)
+
+    def add_teacher_to_database(self, entries):
+        # Get the input data from the form
+        name = entries['Name'].get().strip()
+        username = entries['Username'].get().strip()
+        email = entries['Email'].get().strip()
+        password = entries['Password'].get().strip()
+        phone = entries['Phone'].get().strip()
+        subject = entries['Subject'].get().strip()
+
+        if not name or not username or not email or not password or not phone or not subject:
+            messagebox.showerror("Error", "All fields are required!")
+            return
+
+        # Encrypt the password using SHA256
+        encrypted_password = hashlib.sha256(password.encode()).hexdigest()
+
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+
+        try:
+            # Insert into users table
+            cursor.execute('''
+                INSERT INTO users (username, password, name, email, role)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (username, encrypted_password, name, email, 'Teacher'))
+
+            # Get the ID of the inserted user
+            user_id = cursor.lastrowid
+
+            # Insert into teachers table
+            cursor.execute('''
+                INSERT INTO teachers (id, phone, subject)
+                VALUES (?, ?, ?)
+            ''', (user_id, phone, subject))
+
+            conn.commit()
+            messagebox.showinfo("Success", "Teacher added successfully!")
+            self.show_teachers_page()
+
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Failed to add teacher. Integrity error: {e}")
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
+        finally:
+            conn.close()
+
+
+    def clear_content(self):
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
 
     def edit_teacher(self):
         selected_item = self.teacher_tree.selection()
@@ -597,7 +648,7 @@ class AdminDashboard:
             # Update teachers table
             cursor.execute('''
                 UPDATE teachers
-                SET phone = ?
+                SET phone = ?,
                 subject = ?
                 WHERE id = ?
             ''', (phone,subject, teacher_id))
