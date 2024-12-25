@@ -6,7 +6,7 @@ from admin_dashboard import AdminDashboard
 from student_dashboard import StudentDashboard
 from database import create_database
 from datetime import datetime
-from hashlib import sha256
+from hashlib import sha256 
 from time import time
 
 class UserTypeSelection:
@@ -122,7 +122,7 @@ class UserTypeSelection:
     def redirect_dashboard(self, user_info):
         if user_info['role'] == "Admin":
             self.main_container.destroy()
-            AdminDashboard(self.root, user_info, self)
+            AdminDashboard(self.root, user_info["id"], self)
             messagebox.showinfo("Admin", f"Welcome to the Admin Dashboard, {user_info['name']}!")
         elif user_info['role'] == "Teacher":
             messagebox.showinfo("Teacher", f"Welcome to the Teacher Dashboard, {user_info['name']}!")

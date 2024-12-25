@@ -7,9 +7,9 @@ from tkinter import StringVar
 
 
 class AdminDashboard:
-    def __init__(self, root, admin_info, login_window):
+    def __init__(self, root, admin_id, login_window):
         self.root = root
-        self.adminInfo = admin_info
+        self.admin_id = admin_id
         self.login_window = login_window
         self.root.title("Admin Dashboard")
         
@@ -174,56 +174,44 @@ class AdminDashboard:
         conn.close()
 
     def show_add_student_page(self):
-        # Clear existing content
-        self.clear_content()
-        self.current_page = "add_student"
+        self.current_page = "add_student"  # Update current page
+        self.clear_content()  # Clear the current content before showing Add Student page
 
-        # Create Add Student Frame
-        add_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
-        add_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        # Create add student page content
+        page_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        page_frame.pack(fill='both', expand=True, padx=20, pady=20)
 
         # Header
-        ttk.Label(add_frame,
+        ttk.Label(page_frame,
                 text="Add New Student",
-                font=("Segoe UI", 24, "bold"),
-                foreground=self.colors['text']).pack(pady=(0, 20))
+                font=('Segoe UI', 24, 'bold'),
+                foreground=self.colors['text'],
+                background=self.colors['content']).pack(pady=(0, 20))
 
         # Input fields
-        name_var = StringVar()
-        username_var = StringVar()
-        email_var = StringVar()
-        password_var = StringVar()
-        class_var = StringVar()
-        phone_var = StringVar()
+        form_frame = ttk.Frame(page_frame, style="Content.TFrame")
+        form_frame.pack(pady=20)
 
-        ttk.Label(add_frame, text="Name:", font=("Segoe UI", 12)).pack(pady=(10, 5))
-        ttk.Entry(add_frame, textvariable=name_var, width=40).pack(pady=(0, 10))
+        fields = ["Name", "Username", "Email", "Password", "Class", "Phone"]
+        entries = {}
 
-        ttk.Label(add_frame, text="Username:", font=("Segoe UI", 12)).pack(pady=(10, 5))
-        ttk.Entry(add_frame, textvariable=username_var, width=40).pack(pady=(0, 10))
-
-        ttk.Label(add_frame, text="Email:", font=("Segoe UI", 12)).pack(pady=(10, 5))
-        ttk.Entry(add_frame, textvariable=email_var, width=40).pack(pady=(0, 10))
-
-        ttk.Label(add_frame, text="Password:", font=("Segoe UI", 12)).pack(pady=(10, 5))
-        ttk.Entry(add_frame, textvariable=password_var, show="*", width=40).pack(pady=(0, 10))
-
-        ttk.Label(add_frame, text="Class:", font=("Segoe UI", 12)).pack(pady=(10, 5))
-        ttk.Entry(add_frame, textvariable=class_var, width=40).pack(pady=(0, 10))
-
-        ttk.Label(add_frame, text="Phone:", font=("Segoe UI", 12)).pack(pady=(10, 5))
-        ttk.Entry(add_frame, textvariable=phone_var, width=40).pack(pady=(0, 10))
-
-        # Add Button
-        add_button = ttk.Button(add_frame, text="Add Student",
-                                command=lambda: self.add_student_to_database(
-                                    name_var, username_var, email_var, password_var, class_var, phone_var))
+        for field in fields: 
+            ttk.Label(form_frame, text=field + ":", font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content']).pack(pady=(5, 5), anchor='w') 
+            if field == "Password": 
+                entry = ttk.Entry(form_frame, font=('Segoe UI', 12), show="*") 
+            else: 
+                entry = ttk.Entry(form_frame, font=('Segoe UI', 12)) 
+            entry.pack(fill='x', pady=(0, 10)) 
+            entries[field] = entry
+        
+        # Add button
+        add_button = ttk.Button(page_frame, text="Save", command=lambda: self.add_student_to_database(
+            entries["Name"], entries["Username"], entries["Email"], entries["Password"], entries["Class"], entries["Phone"]))
         add_button.pack(pady=20)
 
-        # Back Button
-        back_button = ttk.Button(add_frame, text="Back", command=self.show_students_page)
+        # Corrected Back button
+        back_button = ttk.Button(page_frame, text="Back", command=self.show_students_page)  # Going back to student list
         back_button.pack(pady=10)
-
 
     def add_student_to_database(self, name_var, username_var, email_var, password_var, class_var, phone_var):
         name = name_var.get().strip()
@@ -274,8 +262,6 @@ class AdminDashboard:
         finally:
             conn.close()
 
-
-
     def edit_student(self):
         selected_item = self.student_tree.selection()
         if not selected_item:
@@ -321,29 +307,34 @@ class AdminDashboard:
                 foreground=self.colors['text']).pack(pady=(0, 20))
 
         # Input fields
-        ttk.Label(edit_frame, text="Name:", font=("Segoe UI", 12)).pack(pady=(10, 5))
-        name_var = StringVar(value=current_name)
-        name_entry = ttk.Entry(edit_frame, textvariable=name_var, width=40)
-        name_entry.pack(pady=(0, 10))
+        form_frame = ttk.Frame(edit_frame, style="Content.TFrame")
+        form_frame.pack(pady=20)
 
-        ttk.Label(edit_frame, text="Email:", font=("Segoe UI", 12)).pack(pady=(10, 5))
-        email_var = StringVar(value=current_email)
-        email_entry = ttk.Entry(edit_frame, textvariable=email_var, width=40)
-        email_entry.pack(pady=(0, 10))
+        fields = {
+            "Name": current_name,
+            "Email": current_email,
+            "Class": current_class
+        }
+        entries = {}
 
-        ttk.Label(edit_frame, text="Class:", font=("Segoe UI", 12)).pack(pady=(10, 5))
-        class_var = StringVar(value=current_class)
-        class_entry = ttk.Entry(edit_frame, textvariable=class_var, width=40)
-        class_entry.pack(pady=(0, 10))
-
+        for field, value in fields.items(): 
+            ttk.Label(form_frame, text=field + ":", font=("Segoe UI", 12), foreground=self.colors['text'], background=self.colors['content']).pack(pady=(5, 5), anchor='w') 
+            entry = ttk.Entry(form_frame, font=("Segoe UI", 12)) 
+            entry.insert(0, value) 
+            if field == "Password": 
+                entry.config(show="*") 
+            entry.pack(fill='x', pady=(0, 10)) 
+            entries[field] = entry
+            
         # Save Button
         save_button = ttk.Button(edit_frame, text="Save", 
-                                command=lambda: self.save_student_data(student_id, name_var, email_var, class_var))
+                                command=lambda: self.save_student_data(student_id, entries["Name"], entries["Email"], entries["Class"]))
         save_button.pack(pady=20)
 
         # Back Button
         back_button = ttk.Button(edit_frame, text="Back", command=self.show_students_page)
         back_button.pack(pady=10)
+
 
     def save_student_data(self, student_id, name_var, email_var, class_var):
         new_name = name_var.get().strip()
@@ -432,7 +423,7 @@ class AdminDashboard:
 
         # Teacher list
         self.teacher_tree = ttk.Treeview(page_frame,
-                                        columns=("ID", "Username", "Name", "Phone","Subject"),
+                                        columns=("ID", "Username", "Name", "Phone", "Subject"),
                                         show="headings",
                                         style="Treeview")
         self.teacher_tree.heading("ID", text="ID")
@@ -481,6 +472,7 @@ class AdminDashboard:
         conn.close()
 
     def show_add_teacher_page(self):
+        self.current_page = "add_teacher"  # Update current page
         self.clear_content()  # Clear the current content before showing Add Teacher page
 
         # Create add teacher page content
@@ -498,21 +490,24 @@ class AdminDashboard:
         form_frame = ttk.Frame(page_frame, style="Content.TFrame")
         form_frame.pack(pady=20)
 
-        fields = ["Name", "Username", "Email", "Password", "Phone","Subject"]
+        fields = ["Name", "Username", "Email", "Password", "Phone", "Subject"]
         entries = {}
 
-        for field in fields:
-            label = ttk.Label(form_frame, text=field, font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content'])
-            label.pack(anchor='w', pady=5)
-
-            entry = ttk.Entry(form_frame, font=('Segoe UI', 12))
-            entry.pack(fill='x', pady=5)
+        for field in fields: 
+            label = ttk.Label(form_frame, text=field, font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content']) 
+            label.pack(anchor='w', pady=5) 
+            if field == "Password": 
+                entry = ttk.Entry(form_frame, font=('Segoe UI', 12), show="*") 
+            else: 
+                entry = ttk.Entry(form_frame, font=('Segoe UI', 12)) 
+            entry.pack(fill='x', pady=5) 
             entries[field] = entry
         
         # Add button
         add_button = ttk.Button(page_frame, text="Save", command=lambda: self.add_teacher_to_database(entries))
         add_button.pack(pady=20)
 
+        # Corrected Back button
         back_button = ttk.Button(page_frame, text="Back", command=self.show_teachers_page)  # Going back to teacher list
         back_button.pack(pady=20)
 
@@ -575,8 +570,8 @@ class AdminDashboard:
 
         teacher_id = self.teacher_tree.item(selected_item, 'values')[0]
 
-        # Clear current content and show edit page
-        self.clear_content()
+        self.current_page = "edit_teacher"  # Update current page
+        self.clear_content()  # Clear the current content before showing Edit Teacher page
 
         # Create edit page content
         page_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
@@ -600,28 +595,30 @@ class AdminDashboard:
             messagebox.showerror("Error", "Unable to fetch teacher details!")
             return
 
-        fields = ["Name", "Username", "Email", "Phone","Subject"]
+        fields = ["Name", "Username", "Email", "Phone", "Subject"]
         entries = {}
 
         form_frame = ttk.Frame(page_frame, style="Content.TFrame")
         form_frame.pack(pady=20)
 
-        for i, field in enumerate(fields):
-            label = ttk.Label(form_frame, text=field, font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content'])
-            label.pack(anchor='w', pady=5)
+        for i, field in enumerate(fields): 
+            label = ttk.Label(form_frame, text=field, font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content']) 
+            label.pack(anchor='w', pady=5) 
 
-            entry = ttk.Entry(form_frame, font=('Segoe UI', 12))
-            entry.insert(0, teacher_data[i])
-            entry.pack(fill='x', pady=5)
+            entry = ttk.Entry(form_frame, font=('Segoe UI', 12)) 
+            if field == "Password": 
+                entry.config(show="*") 
+            entry.insert(0, teacher_data[i]) 
+            entry.pack(fill='x', pady=5) 
             entries[field] = entry
 
         # Save button
         save_button = ttk.Button(page_frame, text="Save Changes", command=lambda: self.save_teacher_changes(teacher_id, entries))
         save_button.pack(pady=20)
 
+        # Corrected Back button
         back_button = ttk.Button(page_frame, text="Back", command=self.show_teachers_page)  # Going back to teacher list
         back_button.pack(pady=20)
-
 
     def save_teacher_changes(self, teacher_id, entries):
         name = entries['Name'].get().strip()
@@ -664,8 +661,6 @@ class AdminDashboard:
         finally:
             conn.close()
 
-
-
     def delete_teacher(self):
         selected_item = self.teacher_tree.selection()
         if not selected_item:
@@ -702,63 +697,17 @@ class AdminDashboard:
     def show_exams_page(self):
         if self.current_page == "exams":
             return
-            
+        
         self.clear_content()
         self.current_page = "exams"
-        
-        # Create exam form
-        form_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
-        form_frame.pack(pady=20, padx=20)
-        
-        # Title
-        ttk.Label(form_frame,
-                 text="Create New Exam",
-                 style="Title.TLabel").pack(anchor='w', pady=(0, 20))
-        
-        # Exam details frame
-        details_frame = ttk.Frame(form_frame, style="Card.TFrame")
-        details_frame.pack(fill='x', padx=20, pady=10)
-        
-        # Title field
-        title_frame = ttk.Frame(details_frame, style="Card.TFrame")
-        title_frame.pack(fill='x', pady=10)
-        ttk.Label(title_frame,
-                 text="Exam Title:",
-                 style="Card.TLabel").pack(side='left', padx=(0, 10))
-        self.exam_title = ttk.Entry(title_frame, width=40)
-        self.exam_title.pack(side='left', fill='x', expand=True)
-        
-        # Subject field
-        subject_frame = ttk.Frame(details_frame, style="Card.TFrame")
-        subject_frame.pack(fill='x', pady=10)
-        ttk.Label(subject_frame,
-                 text="Subject:",
-                 style="Card.TLabel").pack(side='left', padx=(0, 10))
-        self.exam_subject = ttk.Entry(subject_frame, width=40)
-        self.exam_subject.pack(side='left', fill='x', expand=True)
-        
-        # Duration field
-        duration_frame = ttk.Frame(details_frame, style="Card.TFrame")
-        duration_frame.pack(fill='x', pady=10)
-        ttk.Label(duration_frame,
-                 text="Duration (minutes):",
-                 style="Card.TLabel").pack(side='left', padx=(0, 10))
-        self.exam_duration = ttk.Entry(duration_frame, width=10)
-        self.exam_duration.pack(side='left')
-        
-        # Create button
-        ttk.Button(details_frame,
-                  text="Create Exam",
-                  style="Custom.TButton",
-                  command=self.create_exam).pack(pady=20)
-                  
+
         # Exam list section
         list_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
         list_frame.pack(fill='both', expand=True, padx=20, pady=20)
         
         ttk.Label(list_frame,
-                 text="Existing Exams",
-                 style="Title.TLabel").pack(anchor='w', pady=(0, 20))
+                text="Existing Exams",
+                style="Title.TLabel").pack(anchor='w', pady=(0, 20))
         
         # Create treeview with scrollbar
         tree_frame = ttk.Frame(list_frame, style="Content.TFrame")
@@ -795,9 +744,23 @@ class AdminDashboard:
         self.exam_tree.column("Duration", width=100)
         self.exam_tree.column("Created By", width=150)
         
+        # Add buttons for Add, Edit, and Delete
+        button_frame = ttk.Frame(list_frame)
+        button_frame.pack(pady=10)
+        
+        add_button = ttk.Button(button_frame, text="Add Exam", command=self.show_add_exam_page)
+        add_button.pack(side='left', padx=5)
+        
+        edit_button = ttk.Button(button_frame, text="Edit Exam", command=self.edit_exam)
+        edit_button.pack(side='left', padx=5)
+        
+        delete_button = ttk.Button(button_frame, text="Delete Exam", command=self.delete_exam)
+        delete_button.pack(side='left', padx=5)
+        
         # Load exams
         self.refresh_exam_list()
-    
+
+
     def refresh_exam_list(self):
         # Connect to the database
         conn = sqlite3.connect('exam_system.db')
@@ -821,6 +784,193 @@ class AdminDashboard:
 
         # Close the database connection
         conn.close()
+
+    def show_add_exam_page(self):
+        self.clear_content()  # Clear the current content before showing Add Exam page
+        self.current_page = "add_exam"
+
+        # Create add exam page content
+        page_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        page_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+        # Header
+        ttk.Label(page_frame,
+                text="Add New Exam",
+                font=('Segoe UI', 24, 'bold'),
+                foreground=self.colors['text'],
+                background=self.colors['content']).pack(pady=(0, 20))
+
+        # Input fields
+        form_frame = ttk.Frame(page_frame, style="Content.TFrame")
+        form_frame.pack(pady=20)
+
+        fields = ["Title", "Subject", "Duration"]
+        entries = {}
+
+        for field in fields:
+            row = ttk.Frame(form_frame)
+            row.pack(fill='x', pady=5)
+
+            label = ttk.Label(row, text=field + ":", font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content'])
+            label.pack(side='left', padx=5)
+            
+            entry = ttk.Entry(row, font=('Segoe UI', 12))
+            entry.pack(side='left', fill='x', expand=True, padx=5)
+            entries[field] = entry
+        
+        # Add button
+        add_button = ttk.Button(page_frame, text="Save", command=lambda: self.add_exam_to_database(entries))
+        add_button.pack(pady=20)
+
+        # Back button
+        back_button = ttk.Button(page_frame, text="Back", command=self.show_exams_page)  # Going back to exam list
+        back_button.pack(pady=10)
+
+    def add_exam_to_database(self, entries):
+        # Get the input data from the form
+        title = entries['Title'].get().strip()
+        subject = entries['Subject'].get().strip()
+        duration = entries['Duration'].get().strip()
+
+        if not title or not subject or not duration:
+            messagebox.showerror("Error", "All fields are required!")
+            return
+
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+
+        try:
+            # Insert into exams table
+            cursor.execute('''
+                INSERT INTO exams (title, subject, duration, created_by)
+                VALUES (?, ?, ?, ?)
+            ''', (title, subject, duration, self.admin_id))
+
+            conn.commit()
+            messagebox.showinfo("Success", "Exam added successfully!")
+            self.show_exams_page()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
+        finally:
+            conn.close()
+    
+    def edit_exam(self):
+        selected_item = self.exam_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select an exam to edit!")
+            return
+
+        exam_id = self.exam_tree.item(selected_item, 'values')[0]
+        self.show_edit_exam_page(exam_id)
+
+
+    def show_edit_exam_page(self, exam_id):
+        self.clear_content()
+        self.current_page = "edit_exam"
+
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT title, subject, duration
+            FROM exams
+            WHERE id = ?
+        ''', (exam_id,))
+        exam_data = cursor.fetchone()
+        conn.close()
+
+        if not exam_data:
+            messagebox.showerror("Error", "Exam not found!")
+            return
+
+        current_title, current_subject, current_duration = exam_data
+
+        page_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        page_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        ttk.Label(page_frame,
+                text="Edit Exam Details",
+                font=("Segoe UI", 24, "bold"),
+                foreground=self.colors['text']).pack(pady=(0, 20))
+
+        form_frame = ttk.Frame(page_frame, style="Content.TFrame")
+        form_frame.pack(pady=20)
+
+        fields = {
+            "Title": current_title,
+            "Subject": current_subject,
+            "Duration": current_duration
+        }
+        entries = {}
+
+        for field, value in fields.items():
+            row = ttk.Frame(form_frame)
+            row.pack(fill='x', pady=5)
+
+            label = ttk.Label(row, text=field + ":", font=("Segoe UI", 12), foreground=self.colors['text'], background=self.colors['content'])
+            label.pack(side='left', padx=5)
+
+            entry = ttk.Entry(row, font=("Segoe UI", 12))
+            entry.insert(0, value)
+            entry.pack(side='left', fill='x', expand=True, padx=5)
+            entries[field] = entry
+
+        save_button = ttk.Button(page_frame, text="Save Changes", 
+                                command=lambda: self.save_exam_data(exam_id, entries["Title"], entries["Subject"], entries["Duration"]))
+        save_button.pack(pady=20)
+
+        back_button = ttk.Button(page_frame, text="Back", command=self.show_exams_page)
+        back_button.pack(pady=10)
+
+    def save_exam_data(self, exam_id, title_var, subject_var, duration_var):
+        new_title = title_var.get().strip()
+        new_subject = subject_var.get().strip()
+        new_duration = duration_var.get().strip()
+
+        if not new_title or not new_subject or not new_duration:
+            messagebox.showerror("Error", "All fields are required!")
+            return
+
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute('''
+                UPDATE exams
+                SET title = ?, subject = ?, duration = ?
+                WHERE id = ?
+            ''', (new_title, new_subject, new_duration, exam_id))
+
+            conn.commit()
+            messagebox.showinfo("Success", "Exam updated successfully!")
+            self.show_exams_page()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
+        finally:
+            conn.close()
+
+    def delete_exam(self):
+        selected_item = self.exam_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select an exam to delete!")
+            return
+
+        exam_id = self.exam_tree.item(selected_item, 'values')[0]
+
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute('DELETE FROM exams WHERE id = ?', (exam_id,))
+            conn.commit()
+            messagebox.showinfo("Success", "Exam deleted successfully!")
+            self.refresh_exam_list()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
+        finally:
+            conn.close()
 
     
     def show_questions_page(self):
