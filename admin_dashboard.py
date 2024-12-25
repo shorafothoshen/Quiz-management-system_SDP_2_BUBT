@@ -1,10 +1,7 @@
 import tkinter as tk
-from tkinter import ttk, messagebox,simpledialog
+from tkinter import ttk, messagebox
 import sqlite3
-from datetime import datetime
 import hashlib
-from tkinter import StringVar
-
 
 class AdminDashboard:
     def __init__(self, root, admin_id, login_window):
@@ -972,94 +969,20 @@ class AdminDashboard:
         finally:
             conn.close()
 
-    
     def show_questions_page(self):
         if self.current_page == "questions":
             return
-            
+                
         self.clear_content()
         self.current_page = "questions"
         
-        # Create questions page
-        form_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
-        form_frame.pack(pady=20, padx=20)
-        
-        # Title
-        ttk.Label(form_frame,
-                 text="Add New Question",
-                 style="Title.TLabel").pack(anchor='w', pady=(0, 20))
-        
-        # Question form
-        details_frame = ttk.Frame(form_frame, style="Card.TFrame")
-        details_frame.pack(fill='x', padx=20, pady=10)
-        
-        # Exam selection
-        exam_frame = ttk.Frame(details_frame, style="Card.TFrame")
-        exam_frame.pack(fill='x', pady=10)
-        ttk.Label(exam_frame,
-                 text="Select Exam:",
-                 style="Card.TLabel").pack(side='left', padx=(0, 10))
-        self.exam_var = tk.StringVar()
-        self.exam_dropdown = ttk.Combobox(exam_frame,
-                                        textvariable=self.exam_var,
-                                        state='readonly',
-                                        width=40)
-        self.exam_dropdown.pack(side='left', fill='x', expand=True)
-        self.refresh_exam_dropdown()
-        
-        # Question text
-        question_frame = ttk.Frame(details_frame, style="Card.TFrame")
-        question_frame.pack(fill='x', pady=10)
-        ttk.Label(question_frame,
-                 text="Question:",
-                 style="Card.TLabel").pack(anchor='w', padx=(0, 10))
-        self.question_text = tk.Text(question_frame, height=3, width=50)
-        self.question_text.pack(fill='x', pady=5)
-        
-        # Options
-        options_frame = ttk.Frame(details_frame, style="Card.TFrame")
-        options_frame.pack(fill='x', pady=10)
-        
-        self.option_entries = []
-        option_labels = ['A', 'B', 'C', 'D']
-        
-        for i, label in enumerate(option_labels):
-            option_frame = ttk.Frame(options_frame, style="Card.TFrame")
-            option_frame.pack(fill='x', pady=5)
-            ttk.Label(option_frame,
-                     text=f"Option {label}:",
-                     style="Card.TLabel").pack(side='left', padx=(0, 10))
-            entry = ttk.Entry(option_frame, width=50)
-            entry.pack(side='left', fill='x', expand=True)
-            self.option_entries.append(entry)
-        
-        # Correct answer
-        answer_frame = ttk.Frame(details_frame, style="Card.TFrame")
-        answer_frame.pack(fill='x', pady=10)
-        ttk.Label(answer_frame,
-                 text="Correct Answer:",
-                 style="Card.TLabel").pack(side='left', padx=(0, 10))
-        self.correct_var = tk.StringVar()
-        for i, label in enumerate(option_labels):
-            ttk.Radiobutton(answer_frame,
-                          text=label,
-                          variable=self.correct_var,
-                          value=str(i+1),
-                          style="Custom.TRadiobutton").pack(side='left', padx=10)
-        
-        # Add button
-        ttk.Button(details_frame,
-                  text="Add Question",
-                  style="Custom.TButton",
-                  command=self.add_question).pack(pady=20)
-        
-        # Questions list
+        # Questions list section
         list_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
         list_frame.pack(fill='both', expand=True, padx=20, pady=20)
         
         ttk.Label(list_frame,
-                 text="Existing Questions",
-                 style="Title.TLabel").pack(anchor='w', pady=(0, 20))
+                text="Existing Questions",
+                style="Title.TLabel").pack(anchor='w', pady=(0, 20))
         
         # Create treeview with scrollbar
         tree_frame = ttk.Frame(list_frame, style="Content.TFrame")
@@ -1094,8 +1017,325 @@ class AdminDashboard:
         self.question_tree.column("Question", width=400)
         self.question_tree.column("Correct", width=100)
         
+        # Add buttons for Add, Edit, and Delete
+        button_frame = ttk.Frame(list_frame)
+        button_frame.pack(pady=10)
+        
+        add_button = ttk.Button(button_frame, text="Add Question", command=self.show_add_question_page)
+        add_button.pack(side='left', padx=5)
+        
+        edit_button = ttk.Button(button_frame, text="Edit Question", command=self.edit_question)
+        edit_button.pack(side='left', padx=5)
+        
+        delete_button = ttk.Button(button_frame, text="Delete Question", command=self.delete_question)
+        delete_button.pack(side='left', padx=5)
+        
         # Load questions
         self.refresh_question_list()
+
+
+    def refresh_question_list(self):
+        # Connect to the database
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+
+        # Fetch questions data
+        cursor.execute('''
+        SELECT questions.id, exams.title, questions.question, questions.correct_answer
+        FROM questions
+        JOIN exams ON questions.exam_id = exams.id
+        ''')
+        questions = cursor.fetchall()
+
+        # Clear the existing items in the Treeview
+        for item in self.question_tree.get_children():
+            self.question_tree.delete(item)
+
+        # Insert the fetched data into the Treeview
+        for question in questions:
+            self.question_tree.insert('', 'end', values=question)
+
+        # Close the database connection
+        conn.close()
+
+    def show_add_question_page(self):
+        self.clear_content()  # Clear the current content before showing Add Question page
+        self.current_page = "add_question"
+
+        # Create add question page content
+        page_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        page_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+        # Header
+        ttk.Label(page_frame,
+                text="Add New Question",
+                font=('Segoe UI', 24, 'bold'),
+                foreground=self.colors['text'],
+                background=self.colors['content']).pack(pady=(0, 20))
+
+        # Input fields
+        form_frame = ttk.Frame(page_frame, style="Content.TFrame")
+        form_frame.pack(pady=20)
+
+        # Exam selection
+        exam_frame = ttk.Frame(form_frame, style="Card.TFrame")
+        exam_frame.pack(fill='x', pady=10)
+        ttk.Label(exam_frame,
+                text="Select Exam:",
+                style="Card.TLabel").pack(side='left', padx=(0, 10))
+        self.exam_var = tk.StringVar()
+        self.exam_dropdown = ttk.Combobox(exam_frame,
+                                        textvariable=self.exam_var,
+                                        state='readonly',
+                                        width=40)
+        self.exam_dropdown.pack(side='left', fill='x', expand=True)
+        self.refresh_exam_dropdown()
+
+        # Question text
+        question_frame = ttk.Frame(form_frame, style="Card.TFrame")
+        question_frame.pack(fill='x', pady=10)
+        ttk.Label(question_frame,
+                text="Question:",
+                style="Card.TLabel").pack(anchor='w', padx=(0, 10))
+        self.question_text = tk.Text(question_frame, height=3, width=50)
+        self.question_text.pack(fill='x', pady=5)
+        
+        # Options
+        options_frame = ttk.Frame(form_frame, style="Card.TFrame")
+        options_frame.pack(fill='x', pady=10)
+        
+        self.option_entries = []
+        option_labels = ['A', 'B', 'C', 'D']
+        
+        for i, label in enumerate(option_labels):
+            option_frame = ttk.Frame(options_frame, style="Card.TFrame")
+            option_frame.pack(fill='x', pady=5)
+            ttk.Label(option_frame,
+                    text=f"Option {label}:",
+                    style="Card.TLabel").pack(side='left', padx=(0, 10))
+            entry = ttk.Entry(option_frame, width=50)
+            entry.pack(side='left', fill='x', expand=True)
+            self.option_entries.append(entry)
+        
+        # Correct answer
+        answer_frame = ttk.Frame(form_frame, style="Card.TFrame")
+        answer_frame.pack(fill='x', pady=10)
+        ttk.Label(answer_frame,
+                text="Correct Answer:",
+                style="Card.TLabel").pack(side='left', padx=(0, 10))
+        self.correct_var = tk.StringVar()
+        for i, label in enumerate(option_labels):
+            ttk.Radiobutton(answer_frame,
+                            text=label,
+                            variable=self.correct_var,
+                            value=str(i+1),
+                            style="Custom.TRadiobutton").pack(side='left', padx=10)
+        
+        # Add button
+        add_button = ttk.Button(page_frame, text="Add", command=lambda: self.add_question_to_database(self.exam_var, self.question_text, self.option_entries, self.correct_var))
+        add_button.pack(pady=20)
+
+        # Back button
+        back_button = ttk.Button(page_frame, text="Back", command=self.show_questions_page)  # Going back to question list
+        back_button.pack(pady=10)
+            
+        
+    def add_question_to_database(self, entries):
+        exam_id = self.exam_var.get().split('-')[0].strip()
+        question = self.question_text.get("1.0", tk.END).strip()
+        options = [entry.get().strip() for entry in self.option_entries]
+        correct = self.correct_var.get()
+        
+        if not exam_id or not question or not all(options) or not correct:
+            messagebox.showerror("Error", "Please fill all fields!")
+            return
+
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute('''
+                INSERT INTO questions (exam_id, question, option_a, option_b, option_c, option_d, correct_answer)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (exam_id, question, options[0], options[1], options[2], options[3], correct))
+
+            conn.commit()
+            messagebox.showinfo("Success", "Question added successfully!")
+            self.show_questions_page()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
+        finally:
+            conn.close()
+
+    def edit_question(self):
+        selected_item = self.question_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select a question to edit!")
+            return
+
+        question_id = self.question_tree.item(selected_item, 'values')[0]
+        self.show_edit_question_page(question_id)
+
+    def show_edit_question_page(self, question_id):
+        self.clear_content()
+        self.current_page = "edit_question"
+
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT exam_id, question, option_a, option_b, option_c, option_d, correct_answer
+            FROM questions
+            WHERE id = ?
+        ''', (question_id,))
+        question_data = cursor.fetchone()
+        conn.close()
+
+        if not question_data:
+            messagebox.showerror("Error", "Question not found!")
+            return
+
+        exam_id, current_question, option_a, option_b, option_c, option_d, current_correct = question_data
+
+        page_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        page_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        ttk.Label(page_frame,
+                text="Edit Question",
+                font=("Segoe UI", 24, "bold"),
+                foreground=self.colors['text']).pack(pady=(0, 20))
+
+        form_frame = ttk.Frame(page_frame, style="Content.TFrame")
+        form_frame.pack(pady=20)
+
+        # Exam selection
+        exam_frame = ttk.Frame(form_frame, style="Card.TFrame")
+        exam_frame.pack(fill='x', pady=10)
+        ttk.Label(exam_frame,
+                text="Select Exam:",
+                style="Card.TLabel").pack(side='left', padx=(0, 10))
+        self.exam_var = tk.StringVar()
+        self.exam_dropdown = ttk.Combobox(exam_frame,
+                                        textvariable=self.exam_var,
+                                        state='readonly',
+                                        width=40)
+        self.exam_dropdown.pack(side='left', fill='x', expand=True)
+        self.refresh_exam_dropdown()
+
+        self.exam_var.set(f"{exam_id} - {self.get_exam_title(exam_id)}")
+
+        # Question text
+        question_frame = ttk.Frame(form_frame, style="Card.TFrame")
+        question_frame.pack(fill='x', pady=10)
+        ttk.Label(question_frame,
+                text="Question:",
+                style="Card.TLabel").pack(anchor='w', padx=(0, 10))
+        self.question_text = tk.Text(question_frame, height=3, width=50)
+        self.question_text.insert('1.0', current_question)
+        self.question_text.pack(fill='x', pady=5)
+        
+        # Options
+        options_frame = ttk.Frame(form_frame, style="Card.TFrame")
+        options_frame.pack(fill='x', pady=10)
+        
+        self.option_entries = []
+        option_labels = ['A', 'B', 'C', 'D']
+        options = [option_a, option_b, option_c, option_d]
+        
+        for i, (label, option) in enumerate(zip(option_labels, options)):
+            option_frame = ttk.Frame(options_frame, style="Card.TFrame")
+            option_frame.pack(fill='x', pady=5)
+            ttk.Label(option_frame,
+                    text=f"Option {label}:",
+                    style="Card.TLabel").pack(side='left', padx=(0, 10))
+            entry = ttk.Entry(option_frame, width=50)
+            entry.insert(0, option)
+            entry.pack(side='left', fill='x', expand=True)
+            self.option_entries.append(entry)
+        
+        # Correct answer
+        answer_frame = ttk.Frame(form_frame, style="Card.TFrame")
+        answer_frame.pack(fill='x', pady=10)
+        ttk.Label(answer_frame,
+                text="Correct Answer:",
+                style="Card.TLabel").pack(side='left', padx=(0, 10))
+        self.correct_var = tk.StringVar()
+        for i, label in enumerate(option_labels):
+            ttk.Radiobutton(answer_frame,
+                        text=label,
+                        variable=self.correct_var,
+                        value=str(i+1),
+                        style="Custom.TRadiobutton").pack(side='left', padx=10)
+
+        self.correct_var.set(current_correct)
+        
+        # Save button
+        save_button = ttk.Button(page_frame, text="Save Changes", 
+                                command=lambda: self.save_question_data(question_id, self.exam_var, self.question_text, self.option_entries, self.correct_var))
+        save_button.pack(pady=20)
+
+        back_button = ttk.Button(page_frame, text="Back", command=self.show_questions_page)
+        back_button.pack(pady=10)
+
+    def save_question_data(self, question_id, exam_var, question_text, option_entries, correct_var):
+        exam_id = exam_var.get().split('-')[0].strip()
+        new_question = question_text.get("1.0", tk.END).strip()
+        new_options = [entry.get().strip() for entry in option_entries]
+        new_correct = correct_var.get()
+
+        if not exam_id or not new_question or not all(new_options) or not new_correct:
+            messagebox.showerror("Error", "Please fill all fields!")
+            return
+
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute('''
+                UPDATE questions
+                SET exam_id = ?, question = ?, option_a = ?, option_b = ?, option_c = ?, option_d = ?, correct_answer = ?
+                WHERE id = ?
+            ''', (exam_id, new_question, new_options[0], new_options[1], new_options[2], new_options[3], new_correct, question_id))
+
+            conn.commit()
+            messagebox.showinfo("Success", "Question updated successfully!")
+            self.show_questions_page()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
+        finally:
+            conn.close()
+
+    def delete_question(self):
+        selected_item = self.question_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select a question to delete!")
+            return
+
+        question_id = self.question_tree.item(selected_item, 'values')[0]
+
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute('DELETE FROM questions WHERE id = ?', (question_id,))
+            conn.commit()
+            messagebox.showinfo("Success", "Question deleted successfully!")
+            self.refresh_question_list()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
+        finally:
+            conn.close()
+
+    def refresh_exam_dropdown(self):
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, title FROM exams")
+        exams = cursor.fetchall()
+        conn.close()
+
+        self.exam_dropdown['values'] = [f"{exam[0]} - {exam[1]}" for exam in exams]
         
     def show_results_page(self):
         if self.current_page == "results":
@@ -1109,8 +1349,8 @@ class AdminDashboard:
         results_frame.pack(fill='both', expand=True, padx=20, pady=20)
         
         ttk.Label(results_frame,
-                 text="Exam Results",
-                 style="Title.TLabel").pack(anchor='w', pady=(0, 20))
+                text="Exam Results",
+                style="Title.TLabel").pack(anchor='w', pady=(0, 20))
         
         # Create treeview with scrollbar
         tree_frame = ttk.Frame(results_frame, style="Content.TFrame")
@@ -1150,128 +1390,6 @@ class AdminDashboard:
         # Load results
         self.refresh_results_list()
         
-
-    def create_exam(self):
-        title = self.exam_title.get().strip()
-        subject = self.exam_subject.get().strip()
-        duration = self.exam_duration.get().strip()
-        
-        if not title or not subject or not duration:
-            messagebox.showerror("Error", "Please fill all fields")
-            return
-            
-        try:
-            duration = int(duration)
-        except ValueError:
-            messagebox.showerror("Error", "Duration must be a number")
-            return
-
-        try:
-            conn = sqlite3.connect('exam_system.db', timeout=20)
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                INSERT INTO exams (title, subject, duration, created_by)
-                VALUES (?, ?, ?, ?)
-            """, (title, subject, duration, self.admin_id))
-
-            conn.commit()
-            conn.close()
-
-            messagebox.showinfo("Success", "Exam created successfully")
-            self.refresh_exam_list()
-            self.refresh_exam_dropdown()
-
-            # Clear fields
-            self.exam_title.delete(0, tk.END)
-            self.exam_subject.delete(0, tk.END)
-            self.exam_duration.delete(0, tk.END)
-            
-        except sqlite3.Error as e:
-            messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
-            if conn:
-                conn.close()
-
-
-    def refresh_exam_dropdown(self):
-        conn = sqlite3.connect('exam_system.db')
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, title FROM exams")
-        exams = cursor.fetchall()
-        conn.close()
-
-        self.exam_dropdown['values'] = [f"{exam[0]} - {exam[1]}" for exam in exams]
-
-    def logout(self):
-        self.root.destroy()
-        self.login_window.deiconify()
-        
-    def add_question(self):
-        exam_id = self.exam_var.get().split(':')[0]
-        question = self.question_text.get("1.0", tk.END).strip()
-        options = [entry.get().strip() for entry in self.option_entries]
-        correct = self.correct_var.get()
-        
-        if not exam_id or not question or not all(options) or not correct:
-            messagebox.showerror("Error", "Please fill all fields")
-            return
-            
-        try:
-            conn = sqlite3.connect('exam_system.db', timeout=20)
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT INTO questions (exam_id, question, option_a, option_b, option_c, option_d, correct_answer)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (exam_id, question, options[0], options[1], options[2], options[3], correct))
-            
-            conn.commit()
-            conn.close()
-            
-            messagebox.showinfo("Success", "Question added successfully")
-            
-            # Clear fields
-            self.question_text.delete("1.0", tk.END)
-            for entry in self.option_entries:
-                entry.delete(0, tk.END)
-            self.correct_var.set("")
-            
-            # Refresh list
-            self.refresh_question_list()
-            
-        except sqlite3.Error as e:
-            messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
-            if conn:
-                conn.close()
-                
-    def refresh_question_list(self):
-        # Clear existing items
-        for item in self.question_tree.get_children():
-            self.question_tree.delete(item)
-            
-        try:
-            conn = sqlite3.connect('exam_system.db', timeout=20)
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                SELECT q.id, e.title, q.question, q.correct_answer
-                FROM questions q
-                JOIN exams e ON q.exam_id = e.id
-                ORDER BY q.id DESC
-            """)
-            
-            questions = cursor.fetchall()
-            
-            for question in questions:
-                self.question_tree.insert("", "end", values=question)
-                
-            conn.close()
-            
-        except sqlite3.Error as e:
-            messagebox.showerror("Database Error", f"An error occurred while refreshing question list: {str(e)}")
-            if conn:
-                conn.close()
-                
     def refresh_results_list(self):
         # Clear existing items
         for item in self.results_tree.get_children():
@@ -1282,9 +1400,10 @@ class AdminDashboard:
             cursor = conn.cursor()
             
             cursor.execute("""
-                SELECT r.id, s.name, e.title, r.score, r.date
+                SELECT r.id, u.name, e.title, r.score, r.date
                 FROM results r
                 JOIN students s ON r.student_id = s.id
+                JOIN users u ON s.id = u.id  -- Join with users table to get the student name
                 JOIN exams e ON r.exam_id = e.id
                 ORDER BY r.date DESC
             """)
@@ -1296,10 +1415,14 @@ class AdminDashboard:
                 result = list(result)
                 result[3] = f"{float(result[3]):.2f}"
                 self.results_tree.insert("", "end", values=result)
-                
+                    
             conn.close()
             
         except sqlite3.Error as e:
             messagebox.showerror("Database Error", f"An error occurred while refreshing results list: {str(e)}")
             if conn:
                 conn.close()
+
+    def logout(self):
+        self.root.destroy()
+        self.login_window.deiconify()
