@@ -30,8 +30,16 @@ def create_database():
     CREATE TABLE IF NOT EXISTS teachers (
         id INTEGER PRIMARY KEY,
         phone TEXT,
-        subject TEXT NOT NULL,
+        subject_id INTEGER,
+        FOREIGN KEY (subject_id) REFERENCES subjects (id) ON DELETE CASCADE,
         FOREIGN KEY (id) REFERENCES users (id) ON DELETE CASCADE
+    )''')
+
+    # Create subjects table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS subjects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subject_name TEXT NOT NULL
     )''')
 
     # Create students table
@@ -50,10 +58,11 @@ def create_database():
     CREATE TABLE IF NOT EXISTS exams (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
-        subject TEXT NOT NULL,
+        subject_id INTEGER NOT NULL,
         duration INTEGER NOT NULL,
         total_marks INTEGER NOT NULL DEFAULT 100,
         created_by INTEGER,
+        FOREIGN KEY (subject_id) REFERENCES subjects (id) ON DELETE CASCADE,
         FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
     )''')
 

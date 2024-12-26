@@ -4,8 +4,7 @@ import sqlite3
 import hashlib
 from admin_dashboard import AdminDashboard
 from student_dashboard import StudentDashboard
-from database import create_database
-from datetime import datetime
+from Teacher_deshboard import TeacherDashboard
 from hashlib import sha256 
 from time import time
 
@@ -92,15 +91,24 @@ class UserTypeSelection:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
-                SELECT id, name, email, role
-                FROM users
-                WHERE username = ? AND password = ?
-            """, (username, hashed_password))
+            cursor.execute('''
+                SELECT u.id, u.name, u.email, u.role, s.subject_name, t.id
+                FROM users u
+                LEFT JOIN teachers t ON u.id = t.id
+                LEFT JOIN subjects s ON t.subject_id = s.id
+                WHERE u.username = ? AND u.password = ?
+            ''', (username, hashed_password))
             user = cursor.fetchone()
 
             if user:
-                user_info = {"id": user[0], "name": user[1], "email": user[2], "role": user[3]}
+                user_info = {
+                    "id": user[0],
+                    "name": user[1],
+                    "email": user[2],
+                    "role": user[3],
+                    "subject": user[4],  # Subject name fetched from `subjects`
+                    "teacher_id": user[5]  # Teacher ID
+                }
                 self.failed_attempts = 0
                 self.redirect_dashboard(user_info)
             else:
@@ -110,6 +118,7 @@ class UserTypeSelection:
             messagebox.showerror("Error", f"An error occurred: {e}")
         finally:
             conn.close()
+
 
     def handle_failed_attempts(self):
         if self.failed_attempts >= 3:
@@ -125,11 +134,14 @@ class UserTypeSelection:
             AdminDashboard(self.root, user_info["id"], self)
             messagebox.showinfo("Admin", f"Welcome to the Admin Dashboard, {user_info['name']}!")
         elif user_info['role'] == "Teacher":
+            self.main_container.destroy()
+            TeacherDashboard(self.root, user_info)
             messagebox.showinfo("Teacher", f"Welcome to the Teacher Dashboard, {user_info['name']}!")
         elif user_info['role'] == "Student":
             self.main_container.destroy()
             StudentDashboard(self.root, user_info["id"], self)
             messagebox.showinfo("Student", f"Welcome to the Student Dashboard, {user_info['name']}!")
+
 
 class StudentRegistration:
     def __init__(self, root):

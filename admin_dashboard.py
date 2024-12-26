@@ -73,7 +73,8 @@ class AdminDashboard:
         
         # Navigation buttons
         self.create_nav_button("👥 Manage Students", self.show_students_page)
-        self.create_nav_button("👥 Manage Teacher", self.show_teachers_page)
+        self.create_nav_button("👥 Manage Teachers", self.show_teachers_page)
+        self.create_nav_button(" Manage Subjects", self.show_subject_page)
         self.create_nav_button("📝 Manage Exams", self.show_exams_page)
         self.create_nav_button("❓ Manage Questions", self.show_questions_page)
         self.create_nav_button("📊 View Results", self.show_results_page)
@@ -455,9 +456,10 @@ class AdminDashboard:
         cursor = conn.cursor()
 
         cursor.execute('''
-            SELECT u.id, u.username, u.name, t.phone,t.subject
+            SELECT u.id, u.username, u.name, t.phone, s.subject_name
             FROM users u
             JOIN teachers t ON u.id = t.id
+            JOIN subjects s ON t.subject_id = s.id
             WHERE u.role = 'Teacher'
         ''')
 
@@ -487,25 +489,41 @@ class AdminDashboard:
         form_frame = ttk.Frame(page_frame, style="Content.TFrame")
         form_frame.pack(pady=20)
 
-        fields = ["Name", "Username", "Email", "Password", "Phone", "Subject"]
+        fields = ["Name", "Username", "Email", "Password", "Phone"]
         entries = {}
 
-        for field in fields: 
-            label = ttk.Label(form_frame, text=field, font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content']) 
-            label.pack(anchor='w', pady=5) 
-            if field == "Password": 
-                entry = ttk.Entry(form_frame, font=('Segoe UI', 12), show="*") 
-            else: 
-                entry = ttk.Entry(form_frame, font=('Segoe UI', 12)) 
-            entry.pack(fill='x', pady=5) 
+        for field in fields:
+            label = ttk.Label(form_frame, text=field, font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content'])
+            label.pack(anchor='w', pady=5)
+            if field == "Password":
+                entry = ttk.Entry(form_frame, font=('Segoe UI', 12), show="*")
+            else:
+                entry = ttk.Entry(form_frame, font=('Segoe UI', 12))
+            entry.pack(fill='x', pady=5)
             entries[field] = entry
-        
+
+        # Subject dropdown
+        ttk.Label(form_frame, text="Subject", font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content']).pack(anchor='w', pady=5)
+        subject_var = tk.StringVar()
+        subject_dropdown = ttk.Combobox(form_frame, textvariable=subject_var, font=('Segoe UI', 12), state="readonly")
+        subject_dropdown.pack(fill='x', pady=5)
+
+        # Fetch subjects from database
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT subject_name FROM subjects')  # Assuming subjects table has 'subject_name' column
+        subjects = [row[0] for row in cursor.fetchall()]
+        conn.close()
+
+        subject_dropdown['values'] = subjects
+        entries["Subject"] = subject_var
+
         # Add button
         add_button = ttk.Button(page_frame, text="Save", command=lambda: self.add_teacher_to_database(entries))
         add_button.pack(pady=20)
 
-        # Corrected Back button
-        back_button = ttk.Button(page_frame, text="Back", command=self.show_teachers_page)  # Going back to teacher list
+        # Back button
+        back_button = ttk.Button(page_frame, text="Back", command=self.show_teachers_page)
         back_button.pack(pady=20)
 
     def add_teacher_to_database(self, entries):
@@ -515,9 +533,9 @@ class AdminDashboard:
         email = entries['Email'].get().strip()
         password = entries['Password'].get().strip()
         phone = entries['Phone'].get().strip()
-        subject = entries['Subject'].get().strip()
+        subject_name = entries['Subject'].get().strip()
 
-        if not name or not username or not email or not password or not phone or not subject:
+        if not name or not username or not email or not password or not phone or not subject_name:
             messagebox.showerror("Error", "All fields are required!")
             return
 
@@ -537,11 +555,23 @@ class AdminDashboard:
             # Get the ID of the inserted user
             user_id = cursor.lastrowid
 
+            # Find the subject_id from the subjects table
+            cursor.execute('''
+                SELECT id FROM subjects WHERE subject_name = ?
+            ''', (subject_name,))
+            subject_row = cursor.fetchone()
+
+            if not subject_row:
+                messagebox.showerror("Error", f"Subject '{subject_name}' not found in the database.")
+                return
+
+            subject_id = subject_row[0]
+
             # Insert into teachers table
             cursor.execute('''
-                INSERT INTO teachers (id, phone, subject)
+                INSERT INTO teachers (id, phone, subject_id)
                 VALUES (?, ?, ?)
-            ''', (user_id, phone, subject))
+            ''', (user_id, phone, subject_id))
 
             conn.commit()
             messagebox.showinfo("Success", "Teacher added successfully!")
@@ -553,7 +583,6 @@ class AdminDashboard:
             messagebox.showerror("Error", f"An error occurred: {e}")
         finally:
             conn.close()
-
 
     def clear_content(self):
         for widget in self.content_frame.winfo_children():
@@ -584,48 +613,78 @@ class AdminDashboard:
         # Fetch teacher details
         conn = sqlite3.connect("exam_system.db")
         cursor = conn.cursor()
-        cursor.execute('SELECT u.name, u.username, u.email, t.phone, t.subject FROM users u JOIN teachers t ON u.id = t.id WHERE u.id = ?', (teacher_id,))
+        # Fetch teacher details
+        cursor.execute('''
+            SELECT u.name, u.username, u.email, t.phone, s.subject_name
+            FROM users u
+            JOIN teachers t ON u.id = t.id
+            JOIN subjects s ON t.subject_id = s.id
+            WHERE u.id = ?
+        ''', (teacher_id,))
         teacher_data = cursor.fetchone()
+        # Fetch subjects from database
+        cursor.execute('SELECT id, subject_name FROM subjects')
+        subjects = cursor.fetchall()
         conn.close()
 
         if not teacher_data:
             messagebox.showerror("Error", "Unable to fetch teacher details!")
             return
 
-        fields = ["Name", "Username", "Email", "Phone", "Subject"]
+        fields = ["Name", "Username", "Email", "Phone"]
         entries = {}
 
         form_frame = ttk.Frame(page_frame, style="Content.TFrame")
         form_frame.pack(pady=20)
 
-        for i, field in enumerate(fields): 
-            label = ttk.Label(form_frame, text=field, font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content']) 
-            label.pack(anchor='w', pady=5) 
-
-            entry = ttk.Entry(form_frame, font=('Segoe UI', 12)) 
-            if field == "Password": 
-                entry.config(show="*") 
-            entry.insert(0, teacher_data[i]) 
-            entry.pack(fill='x', pady=5) 
+        for i, field in enumerate(fields):
+            label = ttk.Label(form_frame, text=field, font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content'])
+            label.pack(anchor='w', pady=5)
+            entry = ttk.Entry(form_frame, font=('Segoe UI', 12))
+            entry.insert(0, teacher_data[i])
+            entry.pack(fill='x', pady=5)
             entries[field] = entry
 
+        # Subject dropdown
+        ttk.Label(form_frame, text="Subject", font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content']).pack(anchor='w', pady=5)
+
+        subject_var = tk.StringVar()
+        subject_dropdown = ttk.Combobox(form_frame, textvariable=subject_var, font=('Segoe UI', 12), state="readonly")
+        subject_dropdown['values'] = [subject[1] for subject in subjects]
+
+        # Set default selected subject if it exists
+        default_subject = next((subject[1] for subject in subjects if subject[0] == teacher_data[4]), None)
+        if default_subject:
+            subject_dropdown.set(default_subject)
+
+        subject_dropdown.pack(fill='x', pady=5)
+        entries["Subject"] = subject_var
+
+
         # Save button
-        save_button = ttk.Button(page_frame, text="Save Changes", command=lambda: self.save_teacher_changes(teacher_id, entries))
+        save_button = ttk.Button(page_frame, text="Save Changes", command=lambda: self.save_teacher_changes(teacher_id, entries, subjects))
         save_button.pack(pady=20)
 
-        # Corrected Back button
-        back_button = ttk.Button(page_frame, text="Back", command=self.show_teachers_page)  # Going back to teacher list
+        # Back button
+        back_button = ttk.Button(page_frame, text="Back", command=self.show_teachers_page)
         back_button.pack(pady=20)
 
-    def save_teacher_changes(self, teacher_id, entries):
+    def save_teacher_changes(self, teacher_id, entries, subjects):
         name = entries['Name'].get().strip()
         username = entries['Username'].get().strip()
         email = entries['Email'].get().strip()
         phone = entries['Phone'].get().strip()
-        subject = entries['Subject'].get().strip()
+        subject_name = entries['Subject'].get().strip()
 
-        if not name or not username or not email or not phone or not subject:
+        if not name or not username or not email or not phone or not subject_name:
             messagebox.showerror("Error", "All fields are required!")
+            return
+
+        # Get the subject_id from the subject_name
+        subject_id = next((subject[0] for subject in subjects if subject[1] == subject_name), None)
+
+        if not subject_id:
+            messagebox.showerror("Error", "Selected subject is not valid.")
             return
 
         conn = sqlite3.connect("exam_system.db")
@@ -633,19 +692,14 @@ class AdminDashboard:
 
         try:
             # Update users table
-            cursor.execute('''
-                UPDATE users
-                SET name = ?, username = ?, email = ?
-                WHERE id = ?
-            ''', (name, username, email, teacher_id))
+            cursor.execute('''UPDATE users
+                            SET name = ?, username = ?, email = ?
+                            WHERE id = ?''', (name, username, email, teacher_id))
 
             # Update teachers table
-            cursor.execute('''
-                UPDATE teachers
-                SET phone = ?,
-                subject = ?
-                WHERE id = ?
-            ''', (phone,subject, teacher_id))
+            cursor.execute('''UPDATE teachers
+                            SET phone = ?, subject_id = ?
+                            WHERE id = ?''', (phone, subject_id, teacher_id))
 
             conn.commit()
             messagebox.showinfo("Success", "Teacher details updated successfully!")
@@ -690,6 +744,139 @@ class AdminDashboard:
         finally:
             conn.close()
 
+    def show_subject_page(self):
+        self.clear_content()
+
+        ttk.Label(self.content_frame, text="Manage Subjects", style="Subtitle.TLabel").pack(pady=10)
+
+        self.tree = ttk.Treeview(self.content_frame, columns=("ID", "Subject Name"), show='headings')
+        self.tree.heading("ID", text="ID")
+        self.tree.heading("Subject Name", text="Subject Name")
+
+        self.tree.pack(fill='both', expand=True, padx=20, pady=20)
+
+        button_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        button_frame.pack(pady=10)
+        
+        add_button = ttk.Button(button_frame, text="Add Subject", command=self.add_subject)
+        add_button.pack(side='left', padx=5)
+        
+        edit_button = ttk.Button(button_frame, text="Edit Subject", command=self.edit_subject)
+        edit_button.pack(side='left', padx=5)
+        
+        delete_button = ttk.Button(button_frame, text="Delete Subject", command=self.delete_subject)
+        delete_button.pack(side='left', padx=5)
+
+        self.populate_subjects_tree()
+
+    def populate_subjects_tree(self):
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT id, subject_name FROM subjects")
+        subjects = cursor.fetchall()
+
+        for subject in subjects:
+            self.tree.insert("", 'end', values=subject)
+
+        conn.close()
+
+    def add_subject(self):
+        self.clear_content()
+
+        ttk.Label(self.content_frame, text="Add New Subject", style="Subtitle.TLabel").pack(pady=10)
+
+        form_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        form_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+        subject_name_var = tk.StringVar()
+
+        ttk.Label(form_frame, text="Subject Name:", style="Text.TLabel").grid(row=0, column=0, padx=10, pady=10, sticky='e')
+        ttk.Entry(form_frame, textvariable=subject_name_var, style="Content.TEntry").grid(row=0, column=1, padx=10, pady=10, sticky='w')
+
+        submit_button = ttk.Button(form_frame, text="Add Subject", style="Custom.TButton", command=lambda: self.submit_subject(subject_name_var.get()))
+        submit_button.grid(row=1, columnspan=2, pady=20)
+
+        # Add Back button
+        back_button = ttk.Button(form_frame, text="Back", style="Custom.TButton", command=self.show_subject_page)
+        back_button.grid(row=2, columnspan=2, pady=10)
+
+
+    def submit_subject(self, subject_name):
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("INSERT INTO subjects (subject_name) VALUES (?)", (subject_name,))
+            conn.commit()
+            messagebox.showinfo("Success", "Subject added successfully!")
+            self.show_subject_page()
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"An error occurred: {e}")
+
+        finally:
+            conn.close()
+
+    def edit_subject(self):
+        selected_item = self.tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select a subject to edit!")
+            return
+
+        subject_id = self.tree.item(selected_item, 'values')[0]
+        self.show_edit_subject_page(subject_id)
+
+    def show_edit_subject_page(self, subject_id):
+        self.clear_content()
+
+        ttk.Label(self.content_frame, text="Edit Subject", style="Subtitle.TLabel").pack(pady=10)
+
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT subject_name FROM subjects WHERE id = ?", (subject_id,))
+        subject_name = cursor.fetchone()[0]
+        conn.close()
+
+        form_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        form_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+        subject_name_var = tk.StringVar(value=subject_name)
+
+        ttk.Label(form_frame, text="Subject Name:", style="Text.TLabel").grid(row=0, column=0, padx=10, pady=10, sticky='e')
+        ttk.Entry(form_frame, textvariable=subject_name_var, style="Content.TEntry").grid(row=0, column=1, padx=10, pady=10, sticky='w')
+
+        submit_button = ttk.Button(form_frame, text="Save Changes", style="Custom.TButton", command=lambda: self.update_subject(subject_id, subject_name_var.get()))
+        submit_button.grid(row=1, columnspan=2, pady=20)
+
+        # Add Back button
+        back_button = ttk.Button(form_frame, text="Back", style="Custom.TButton", command=self.show_subject_page)
+        back_button.grid(row=2, columnspan=2, pady=10)
+
+
+    def update_subject(self, subject_id, subject_name):
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("UPDATE subjects SET subject_name = ? WHERE id = ?", (subject_name, subject_id))
+            conn.commit()
+            messagebox.showinfo("Success", "Subject updated successfully!")
+            self.show_subject_page()
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"An error occurred: {e}")
+
+        finally:
+            conn.close()
+
+    def delete_subject(self):
+        selected_item = self.tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select a subject to delete!")
+            return
+
+        subject_id = self.tree.item(selected_item, 'values')[0]
 
     def show_exams_page(self):
         if self.current_page == "exams":
@@ -763,10 +950,11 @@ class AdminDashboard:
         conn = sqlite3.connect('exam_system.db')
         cursor = conn.cursor()
 
-        # Fetch exams data
+        # Fetch exams data with subject names
         cursor.execute('''
-        SELECT exams.id, exams.title, exams.subject, exams.duration, users.name
+        SELECT exams.id, exams.title, subjects.subject_name AS subject, exams.duration, users.name AS created_by
         FROM exams
+        LEFT JOIN subjects ON exams.subject_id = subjects.id
         LEFT JOIN users ON exams.created_by = users.id
         ''')
         exams = cursor.fetchall()
@@ -781,6 +969,7 @@ class AdminDashboard:
 
         # Close the database connection
         conn.close()
+
 
     def show_add_exam_page(self):
         self.clear_content()  # Clear the current content before showing Add Exam page
@@ -801,56 +990,86 @@ class AdminDashboard:
         form_frame = ttk.Frame(page_frame, style="Content.TFrame")
         form_frame.pack(pady=20)
 
-        fields = ["Title", "Subject", "Duration"]
-        entries = {}
+        # Title field
+        row = ttk.Frame(form_frame)
+        row.pack(fill='x', pady=5)
 
-        for field in fields:
-            row = ttk.Frame(form_frame)
-            row.pack(fill='x', pady=5)
+        label = ttk.Label(row, text="Title:", font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content'])
+        label.pack(side='left', padx=5)
 
-            label = ttk.Label(row, text=field + ":", font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content'])
-            label.pack(side='left', padx=5)
-            
-            entry = ttk.Entry(row, font=('Segoe UI', 12))
-            entry.pack(side='left', fill='x', expand=True, padx=5)
-            entries[field] = entry
-        
-        # Add button
-        add_button = ttk.Button(page_frame, text="Save", command=lambda: self.add_exam_to_database(entries))
-        add_button.pack(pady=20)
+        title_entry = ttk.Entry(row, font=('Segoe UI', 12))
+        title_entry.pack(side='left', fill='x', expand=True, padx=5)
+
+        # Subject dropdown
+        subject_row = ttk.Frame(form_frame)
+        subject_row.pack(fill='x', pady=5)
+
+        subject_label = ttk.Label(subject_row, text="Subject:", font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content'])
+        subject_label.pack(side='left', padx=5)
+
+        subject_combobox = ttk.Combobox(subject_row, font=('Segoe UI', 12), state='readonly')
+        subject_combobox.pack(side='left', fill='x', expand=True, padx=5)
+
+        # Load subjects from database
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, subject_name FROM subjects")
+        subjects = cursor.fetchall()
+        conn.close()
+
+        # Populate the combobox
+        subject_dict = {subject[1]: subject[0] for subject in subjects}  # Map subject_name to subject_id
+        subject_combobox['values'] = list(subject_dict.keys())
+
+        # Duration field
+        duration_row = ttk.Frame(form_frame)
+        duration_row.pack(fill='x', pady=5)
+
+        duration_label = ttk.Label(duration_row, text="Duration (minutes):", font=('Segoe UI', 12), foreground=self.colors['text'], background=self.colors['content'])
+        duration_label.pack(side='left', padx=5)
+
+        duration_entry = ttk.Entry(duration_row, font=('Segoe UI', 12))
+        duration_entry.pack(side='left', fill='x', expand=True, padx=5)
+
+        # Save button
+        save_button = ttk.Button(page_frame, text="Save", command=lambda: self.add_exam_to_database(title_entry.get(), subject_combobox.get(), duration_entry.get(), subject_dict))
+        save_button.pack(pady=20)
 
         # Back button
         back_button = ttk.Button(page_frame, text="Back", command=self.show_exams_page)  # Going back to exam list
         back_button.pack(pady=10)
 
-    def add_exam_to_database(self, entries):
-        # Get the input data from the form
-        title = entries['Title'].get().strip()
-        subject = entries['Subject'].get().strip()
-        duration = entries['Duration'].get().strip()
 
-        if not title or not subject or not duration:
+    def add_exam_to_database(self, title, selected_subject, duration, subject_dict):
+        # Validate inputs
+        if not title or not selected_subject or not duration:
             messagebox.showerror("Error", "All fields are required!")
             return
 
-        conn = sqlite3.connect("exam_system.db")
-        cursor = conn.cursor()
-
         try:
+            subject_id = subject_dict[selected_subject]  # Get subject_id from selected subject name
+            duration = int(duration)  # Validate duration
+
+            conn = sqlite3.connect("exam_system.db")
+            cursor = conn.cursor()
+
             # Insert into exams table
             cursor.execute('''
-                INSERT INTO exams (title, subject, duration, created_by)
+                INSERT INTO exams (title, subject_id, duration, created_by)
                 VALUES (?, ?, ?, ?)
-            ''', (title, subject, duration, self.admin_id))
+            ''', (title, subject_id, duration, self.admin_id))
 
             conn.commit()
             messagebox.showinfo("Success", "Exam added successfully!")
             self.show_exams_page()
 
+        except ValueError:
+            messagebox.showerror("Error", "Duration must be a number!")
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred: {e}")
         finally:
             conn.close()
+
     
     def edit_exam(self):
         selected_item = self.exam_tree.selection()
@@ -868,12 +1087,19 @@ class AdminDashboard:
 
         conn = sqlite3.connect("exam_system.db")
         cursor = conn.cursor()
+        
+        # Fetch exam data and subject options
         cursor.execute('''
-            SELECT title, subject, duration
+            SELECT exams.title, subjects.subject_name, exams.duration
             FROM exams
-            WHERE id = ?
+            JOIN subjects ON exams.subject_id = subjects.id
+            WHERE exams.id = ?
         ''', (exam_id,))
         exam_data = cursor.fetchone()
+
+        cursor.execute('SELECT id, subject_name FROM subjects')
+        subjects_data = cursor.fetchall()
+        
         conn.close()
 
         if not exam_data:
@@ -881,6 +1107,9 @@ class AdminDashboard:
             return
 
         current_title, current_subject, current_duration = exam_data
+
+        # Create a dictionary for subjects for the dropdown
+        subjects_dict = {subject[1]: subject[0] for subject in subjects_data}
 
         page_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
         page_frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -895,11 +1124,11 @@ class AdminDashboard:
 
         fields = {
             "Title": current_title,
-            "Subject": current_subject,
             "Duration": current_duration
         }
         entries = {}
 
+        # Title and Duration entry fields
         for field, value in fields.items():
             row = ttk.Frame(form_frame)
             row.pack(fill='x', pady=5)
@@ -912,21 +1141,49 @@ class AdminDashboard:
             entry.pack(side='left', fill='x', expand=True, padx=5)
             entries[field] = entry
 
+        # Subject dropdown
+        row = ttk.Frame(form_frame)
+        row.pack(fill='x', pady=5)
+
+        subject_label = ttk.Label(row, text="Subject:", font=("Segoe UI", 12), foreground=self.colors['text'], background=self.colors['content'])
+        subject_label.pack(side='left', padx=5)
+
+        subject_combobox = ttk.Combobox(row, values=list(subjects_dict.keys()), state="readonly", font=("Segoe UI", 12))
+        subject_combobox.set(current_subject)  # Set the current subject as default
+        subject_combobox.pack(side='left', fill='x', expand=True, padx=5)
+
+        # Save button
         save_button = ttk.Button(page_frame, text="Save Changes", 
-                                command=lambda: self.save_exam_data(exam_id, entries["Title"], entries["Subject"], entries["Duration"]))
+                                command=lambda: self.save_exam_data(exam_id, entries["Title"], subject_combobox, entries["Duration"]))
         save_button.pack(pady=20)
 
+        # Back button
         back_button = ttk.Button(page_frame, text="Back", command=self.show_exams_page)
         back_button.pack(pady=10)
 
-    def save_exam_data(self, exam_id, title_var, subject_var, duration_var):
+
+    def save_exam_data(self, exam_id, title_var, subject_combobox, duration_var):
         new_title = title_var.get().strip()
-        new_subject = subject_var.get().strip()
+        new_subject_name = subject_combobox.get().strip()
         new_duration = duration_var.get().strip()
 
-        if not new_title or not new_subject or not new_duration:
+        if not new_title or not new_subject_name or not new_duration:
             messagebox.showerror("Error", "All fields are required!")
             return
+
+        # Get the subject ID from the dictionary
+        conn = sqlite3.connect("exam_system.db")
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT id FROM subjects WHERE subject_name = ?', (new_subject_name,))
+        subject_id_data = cursor.fetchone()
+        conn.close()
+
+        if not subject_id_data:
+            messagebox.showerror("Error", "Invalid subject!")
+            return
+
+        new_subject_id = subject_id_data[0]
 
         conn = sqlite3.connect("exam_system.db")
         cursor = conn.cursor()
@@ -934,9 +1191,9 @@ class AdminDashboard:
         try:
             cursor.execute('''
                 UPDATE exams
-                SET title = ?, subject = ?, duration = ?
+                SET title = ?, subject_id = ?, duration = ?
                 WHERE id = ?
-            ''', (new_title, new_subject, new_duration, exam_id))
+            ''', (new_title, new_subject_id, new_duration, exam_id))
 
             conn.commit()
             messagebox.showinfo("Success", "Exam updated successfully!")
@@ -946,6 +1203,7 @@ class AdminDashboard:
             messagebox.showerror("Error", f"An error occurred: {e}")
         finally:
             conn.close()
+
 
     def delete_exam(self):
         selected_item = self.exam_tree.selection()
@@ -1140,11 +1398,11 @@ class AdminDashboard:
         back_button.pack(pady=10)
             
         
-    def add_question_to_database(self, entries):
-        exam_id = self.exam_var.get().split('-')[0].strip()
-        question = self.question_text.get("1.0", tk.END).strip()
-        options = [entry.get().strip() for entry in self.option_entries]
-        correct = self.correct_var.get()
+    def add_question_to_database(self, exam_var, question_text, option_entries, correct_var):
+        exam_id = exam_var.get().split('-')[0].strip()
+        question = question_text.get("1.0", tk.END).strip()
+        options = [entry.get().strip() for entry in option_entries]
+        correct = correct_var.get()
         
         if not exam_id or not question or not all(options) or not correct:
             messagebox.showerror("Error", "Please fill all fields!")
@@ -1424,5 +1682,10 @@ class AdminDashboard:
                 conn.close()
 
     def logout(self):
-        self.root.destroy()
-        self.login_window.deiconify()
+        if messagebox.askyesno("Confirm Logout", "Are you sure you want to logout?"):
+            self.root.destroy()
+            # Create new main window
+            root = tk.Tk()
+            from main import UserTypeSelection
+            UserTypeSelection(root)
+            root.mainloop()

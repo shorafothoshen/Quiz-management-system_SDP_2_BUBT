@@ -7,8 +7,6 @@ from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-import os
-from PIL import Image, ImageTk
 import io
 
 class StudentDashboard:
@@ -387,8 +385,10 @@ class StudentDashboard:
         finally:
             conn.close()
 
-    
     def show_results(self):
+        if self.current_page == "results":
+            return
+            
         self.clear_current_page()
         self.current_page = ttk.Frame(self.content_frame, style="Content.TFrame")
         self.current_page.pack(fill='both', expand=True)
@@ -483,6 +483,39 @@ class StudentDashboard:
         finally:
             conn.close()
 
+    def refresh_results(self):
+        for item in self.results_tree.get_children():
+            self.results_tree.delete(item)
+
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("""
+                SELECT e.title, r.score, r.date
+                FROM results r
+                JOIN exams e ON r.exam_id = e.id
+                WHERE r.student_id = ?
+                ORDER BY r.date DESC
+            """, (self.student_id,))
+            self.results = cursor.fetchall()  # Store results for PDF generation
+            
+            if self.results:
+                for result in self.results:
+                    completion_date = datetime.strptime(result[2], '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S')
+                    self.results_tree.insert('', 'end', values=(
+                        result[0],
+                        result[1],
+                        result[2],
+                        completion_date
+                    ))
+            else:
+                self.results_tree.insert('', 'end', values=('No results available', '', '', ''))
+                
+        except sqlite3.OperationalError:
+            pass
+        finally:
+            conn.close()
     
     def show_profile(self):
         self.clear_current_page()
@@ -804,40 +837,7 @@ class StudentDashboard:
             pass
         finally:
             conn.close()
-    
-    def refresh_results(self):
-        for item in self.results_tree.get_children():
-            self.results_tree.delete(item)
 
-        conn = sqlite3.connect('exam_system.db')
-        cursor = conn.cursor()
-
-        try:
-            cursor.execute("""
-                SELECT e.title, r.score, r.date
-                FROM results r
-                JOIN exams e ON r.exam_id = e.id
-                WHERE r.student_id = ?
-                ORDER BY r.date DESC
-            """, (self.student_id,))
-            self.results = cursor.fetchall()  # Store results for PDF generation
-            
-            if self.results:
-                for result in self.results:
-                    completion_date = datetime.strptime(result[2], '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S')
-                    self.results_tree.insert('', 'end', values=(
-                        result[0],
-                        result[1],
-                        result[2],
-                        completion_date
-                    ))
-            else:
-                self.results_tree.insert('', 'end', values=('No results available', '', '', ''))
-                
-        except sqlite3.OperationalError:
-            pass
-        finally:
-            conn.close()
     
     def refresh_timeline(self):
         for item in self.timeline.get_children():
@@ -870,6 +870,17 @@ class StudentDashboard:
 
         exam_id = self.exam_tree.item(selection[0])['values'][0]
         
+        # Check if there are any questions for the selected exam
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM questions WHERE exam_id = ?", (exam_id,))
+        question_count = cursor.fetchone()[0]
+        conn.close()
+        
+        if question_count == 0:
+            messagebox.showwarning("No Questions", "There are no questions for the selected exam.")
+            return
+        
         # Hide the dashboard window
         self.root.withdraw()
         
@@ -880,24 +891,50 @@ class StudentDashboard:
         
         # When exam window is closed, show dashboard and refresh
         exam_window.protocol("WM_DELETE_WINDOW", 
-                           lambda: [exam_window.destroy(), 
-                                  self.root.deiconify(),
-                                  self.refresh_exam_list(),
-                                  self.refresh_results()])
-    
-    def logout(self):
-        if messagebox.askyesno("Confirm Logout", "Are you sure you want to logout?"):
-            self.root.destroy()
-            # Create new main window
-            root = tk.Tk()
-            from main import UserTypeSelection
-            UserTypeSelection(root)
-            root.mainloop()
+                            lambda: [exam_window.destroy(), 
+                                    self.root.deiconify(),
+                                    self.refresh_exam_list(),
+                                    self.refresh_results()])
 
     def init_database(self):
         conn = sqlite3.connect('exam_system.db')
         cursor = conn.cursor()
         
+        # Create users table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL, -- Encrypted password
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                role TEXT CHECK(role IN ('Admin', 'Teacher', 'Student')) NOT NULL
+            )
+        ''')
+
+        # Create students table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS students (
+                id INTEGER PRIMARY KEY,
+                class TEXT NOT NULL,
+                phone TEXT,
+                profile_pic BLOB,
+                bio TEXT,
+                FOREIGN KEY (id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        ''')
+
+        # Create exams table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS exams (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                duration INTEGER NOT NULL,
+                total_marks INTEGER NOT NULL
+            )
+        ''')
+
         # Create results table if it doesn't exist
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS results (
@@ -910,18 +947,7 @@ class StudentDashboard:
                 FOREIGN KEY (exam_id) REFERENCES exams(id)
             )
         ''')
-        
-        # Create exams table if it doesn't exist
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS exams (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                subject TEXT NOT NULL,
-                duration INTEGER NOT NULL,
-                total_marks INTEGER NOT NULL
-            )
-        ''')
-        
+
         conn.commit()
         conn.close()
 
@@ -934,7 +960,8 @@ class StudentDashboard:
             cursor.execute("""
                 SELECT name, class, email
                 FROM students 
-                WHERE id = ?
+                JOIN users ON students.id = users.id -- Ensure students join with users to get name and email
+                WHERE students.id = ?
             """, (self.student_id,))
             student_info = cursor.fetchone()
             
@@ -1087,3 +1114,13 @@ class StudentDashboard:
             messagebox.showerror("Error", f"Failed to generate progress report: {str(e)}")
         finally:
             conn.close()
+
+
+    def logout(self):
+        if messagebox.askyesno("Confirm Logout", "Are you sure you want to logout?"):
+            self.root.destroy()
+            # Create new main window
+            root = tk.Tk()
+            from main import UserTypeSelection
+            UserTypeSelection(root)
+            root.mainloop()
