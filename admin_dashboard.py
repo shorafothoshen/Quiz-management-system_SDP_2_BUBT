@@ -74,7 +74,7 @@ class AdminDashboard:
         # Navigation buttons
         self.create_nav_button("👥 Manage Students", self.show_students_page)
         self.create_nav_button("👥 Manage Teachers", self.show_teachers_page)
-        self.create_nav_button(" Manage Subjects", self.show_subject_page)
+        self.create_nav_button("📚 Manage Subjects", self.show_subject_page)
         self.create_nav_button("📝 Manage Exams", self.show_exams_page)
         self.create_nav_button("❓ Manage Questions", self.show_questions_page)
         self.create_nav_button("📊 View Results", self.show_results_page)

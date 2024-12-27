@@ -2,378 +2,970 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
-from hashlib import sha256
-from time import time
-
-# Function to connect to the database
-def connect_db():
-    return sqlite3.connect('exam_system.db')
+import os
+from PIL import Image, ImageTk
 
 class TeacherDashboard:
     def __init__(self, root, user_info):
         self.root = root
         self.user_info = user_info
-        self.root.title("Teacher Dashboard")
+        self.root.title("Modern Teacher Dashboard")
         
         # Configure the window
-        self.root.state('zoomed')  # Maximize window
-
-        # Configure colors
+        self.root.state('zoomed')
+        
+        # Color scheme matching the image
         self.colors = {
-            'bg_dark': '#0A192F',
-            'sidebar': '#112240',
-            'content': '#1A2744',
-            'accent1': '#64FFDA',
-            'accent2': '#8892B0',
-            'text': '#E6F1FF',
-            'text_secondary': '#8892B0',
-            'hover': '#233554'
+            'bg_dark': '#1B2838',      # Dark blue background
+            'sidebar': '#1B2838',      # Same dark blue for sidebar
+            'content': '#1B2838',      # Content area background
+            'text': '#FFFFFF',         # White text
+            'hover': '#a0a0a0',        # Hover color
+            'button': '#2A3F5F',       # Button color
+            'button_hover': '#34495E'   # Button hover color
         }
 
         # Configure styles
+        self.setup_styles()
+        
+        # Create main container
+        self.main_container = ttk.Frame(root, style="Main.TFrame")
+        self.main_container.pack(fill='both', expand=True)
+        
+        # Create sidebar
+        self.create_sidebar()
+        
+        # Create main content area
+        self.content_area = ttk.Frame(self.main_container, style="Content.TFrame")
+        self.content_area.pack(side='left', fill='both', expand=True)
+        
+        # Create header
+        self.create_header()
+        
+        # Create main content frame
+        self.content_frame = ttk.Frame(self.content_area, style="Content.TFrame")
+        self.content_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        
+        # Initialize with dashboard view
+        self.show_dashboard()
+
+    def setup_styles(self):
         self.style = ttk.Style()
         self.style.theme_use('clam')
-
+        
+        # Frame styles
+        self.style.configure("Main.TFrame", background=self.colors['bg_dark'])
         self.style.configure("Content.TFrame", background=self.colors['content'])
         self.style.configure("Sidebar.TFrame", background=self.colors['sidebar'])
-        self.style.configure("Title.TLabel", background=self.colors['content'], foreground=self.colors['text'], font=('Segoe UI', 24, 'bold'))
-        self.style.configure("Subtitle.TLabel", background=self.colors['content'], foreground=self.colors['text_secondary'], font=('Segoe UI', 18))
-        self.style.configure("Text.TLabel", background=self.colors['content'], foreground=self.colors['text'], font=('Segoe UI', 12))
-        self.style.configure("Custom.TButton", background=self.colors['accent1'], foreground=self.colors['bg_dark'], font=('Segoe UI', 11), relief="flat", borderwidth=0, padding=(10, 5))
-        self.style.map("Custom.TButton", background=[('active', self.colors['hover'])], foreground=[('active', self.colors['bg_dark'])])
-        self.style.configure("Treeview", background=self.colors['content'], foreground=self.colors['text'], fieldbackground=self.colors['content'], font=('Segoe UI', 12))
-        self.style.map("Treeview", background=[('selected', self.colors['hover'])], foreground=[('selected', self.colors['text'])])
-        self.style.configure("Treeview.Heading", background=self.colors['sidebar'], foreground=self.colors['text'], font=('Segoe UI', 12, 'bold'))
+        
+        # Label styles
+        self.style.configure("Header.TLabel",
+                           background=self.colors['content'],
+                           foreground=self.colors['text'],
+                           font=('Segoe UI', 24, 'bold'))
+        
+        self.style.configure("SidebarBtn.TLabel",
+                           background=self.colors['sidebar'],
+                           foreground=self.colors['text'],
+                           font=('Segoe UI', 12),
+                           padding=10)
+        
+        # Menu label style
+        self.style.configure("Menu.TLabel",
+                           background=self.colors['sidebar'],
+                           foreground=self.colors['text'],
+                           font=('Segoe UI', 12),
+                           padding=0)
+        
+        # Button styles
+        self.style.configure("Action.TButton",
+                           background=self.colors['button'],
+                           foreground=self.colors['text'],
+                           font=('Segoe UI', 11),
+                           padding=(20, 10))
+        
+        # Treeview styles
+        self.style.configure("Treeview",
+                           background=self.colors['content'],
+                           foreground=self.colors['text'],
+                           fieldbackground=self.colors['content'],
+                           font=('Segoe UI', 11))
+        
+        self.style.configure("Treeview.Heading",
+                           background=self.colors['button'],
+                           foreground=self.colors['text'],
+                           font=('Segoe UI', 12, 'bold'))
+        
+        self.style.map("Treeview",
+                      background=[('selected', self.colors['button_hover'])],
+                      foreground=[('selected', self.colors['text'])])
 
-        # Main container
-        self.main_container = ttk.Frame(root, style="Content.TFrame")
-        self.main_container.pack(fill='both', expand=True)
+    def create_sidebar(self):
+        sidebar = ttk.Frame(self.main_container, style="Sidebar.TFrame", width=250)
+        sidebar.pack(side='left', fill='y')
+        sidebar.pack_propagate(False)
+        
+        # Add spacing at top
+        ttk.Frame(sidebar, style="Sidebar.TFrame", height=50).pack(fill='x')
+        
+        # Menu items with exact styling from image
+        menu_items = [
+            ("📝 Manage Exams", self.show_exams),
+            ("❓ Manage Questions", self.show_questions),
+            ("📊 View Results", self.show_results),
+            ("👤 My Profile", self.show_profile)
+        ]
+        
+        # Add menu items with more spacing
+        for text, command in menu_items:
+            menu_frame = ttk.Frame(sidebar, style="Sidebar.TFrame")
+            menu_frame.pack(fill='x', pady=15)  # Increased spacing between items
+            
+            label = ttk.Label(menu_frame, 
+                            text=text,
+                            style="Menu.TLabel",
+                            cursor="hand2")
+            label.pack(fill='x', padx=20, pady=8, anchor='w')
+            label.bind('<Button-1>', lambda e, cmd=command: cmd())
+            
+            # Add hover effect
+            label.bind('<Enter>', lambda e, lbl=label: self.on_menu_hover(lbl, True))
+            label.bind('<Leave>', lambda e, lbl=label: self.on_menu_hover(lbl, False))
+        
+        # Add logout at bottom with spacing
+        ttk.Frame(sidebar, style="Sidebar.TFrame", height=50).pack(fill='x', expand=True)
+        logout_frame = ttk.Frame(sidebar, style="Sidebar.TFrame")
+        logout_frame.pack(fill='x', pady=20, side='bottom')
+        
+        logout_label = ttk.Label(logout_frame,
+                               text="🚪 Logout",
+                               style="Menu.TLabel",
+                               cursor="hand2")
+        logout_label.pack(fill='x', padx=20, pady=8, anchor='w')
+        logout_label.bind('<Button-1>', lambda e: self.logout())
+        logout_label.bind('<Enter>', lambda e: self.on_menu_hover(logout_label, True))
+        logout_label.bind('<Leave>', lambda e: self.on_menu_hover(logout_label, False))
 
-        # Sidebar
-        self.sidebar = ttk.Frame(self.main_container, style="Sidebar.TFrame")
-        self.sidebar.pack(side='left', fill='y')
+    def on_menu_hover(self, label, entering):
+        if entering:
+            label.configure(foreground='#a0a0a0')  # Light gray on hover
+        else:
+            label.configure(foreground=self.colors['text'])  # Back to white
 
-        # Sidebar buttons
-        ttk.Button(self.sidebar, text="Show Results", style="Custom.TButton", command=self.show_results).pack(fill='x', pady=(20, 0))
-        ttk.Button(self.sidebar, text="Manage Exams", style="Custom.TButton", command=self.show_exams).pack(fill='x', pady=(20, 0))
-        ttk.Button(self.sidebar, text="Manage Questions", style="Custom.TButton", command=self.show_questions).pack(fill='x', pady=(20, 0))
-        ttk.Button(self.sidebar, text="Profile", style="Custom.TButton", command=self.show_profile).pack(fill='x', pady=(20, 0))
-        ttk.Button(self.sidebar, text="Logout", style="Custom.TButton", command=self.logout).pack(fill='x', pady=(20, 0))
+    def create_header(self):
+        header = ttk.Frame(self.content_area, style="Content.TFrame")
+        header.pack(fill='x', padx=20, pady=(20, 0))
+        
+        ttk.Label(header,
+                 text="Teacher Dashboard",
+                 style="Header.TLabel").pack(side='left')
+        
+        # Add current date/time
+        current_time = datetime.now().strftime("%B %d, %Y")
+        ttk.Label(header,
+                 text=current_time,
+                 style="SidebarBtn.TLabel").pack(side='right', padx=20)
 
-        # Header section
-        header_frame = ttk.Frame(self.main_container, style="Content.TFrame")
-        header_frame.pack(fill='x', pady=(20, 20))
+    def show_dashboard(self):
+        self.clear_content()
+        
+        # Create dashboard widgets
+        stats_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        stats_frame.pack(fill='x', pady=20)
+        
+        # Stats cards
+        self.create_stat_card(stats_frame, "Total Exams", "15", 0)
+        self.create_stat_card(stats_frame, "Active Students", "150", 1)
+        self.create_stat_card(stats_frame, "Average Score", "75%", 2)
+        self.create_stat_card(stats_frame, "Pending Reviews", "5", 3)
 
-        ttk.Label(header_frame, text="Teacher Dashboard", style="Title.TLabel").pack(anchor='center')
+        # Recent Activity Section
+        activity_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        activity_frame.pack(fill='both', expand=True, pady=20)
+        
+        ttk.Label(activity_frame,
+                 text="Recent Activity",
+                 style="Header.TLabel").pack(anchor='w', pady=(0, 10))
+        
+        # Activity list using Treeview
+        tree = ttk.Treeview(activity_frame, columns=("Date", "Activity", "Status"),
+                           show='headings', height=6)
+        tree.heading("Date", text="Date")
+        tree.heading("Activity", text="Activity")
+        tree.heading("Status", text="Status")
+        
+        # Sample data
+        activities = [
+            ("2024-12-27", "Physics Final Exam", "Completed"),
+            ("2024-12-26", "Chemistry Quiz", "In Progress"),
+            ("2024-12-25", "Math Assignment", "Pending Review")
+        ]
+        
+        for item in activities:
+            tree.insert("", 'end', values=item)
+        
+        tree.pack(fill='both', expand=True)
 
-        # Content frame
-        self.content_frame = ttk.Frame(self.main_container, style="Content.TFrame")
-        self.content_frame.pack(fill='both', expand=True)
+    def create_stat_card(self, parent, title, value, column):
+        card = ttk.Frame(parent, style="Content.TFrame")
+        card.grid(row=0, column=column, padx=10, pady=10, sticky='nsew')
+        
+        ttk.Label(card,
+                 text=title,
+                 style="SidebarBtn.TLabel").pack(pady=(10, 5))
+        
+        ttk.Label(card,
+                 text=value,
+                 style="Header.TLabel").pack(pady=(0, 10))
 
-        self.show_results()
-    def show_results(self):
-        # Clear previous content
+    def clear_content(self):
         for widget in self.content_frame.winfo_children():
             widget.destroy()
-
-        ttk.Label(self.content_frame, text="Student Results", style="Subtitle.TLabel").pack(pady=10)
-
-        self.tree = ttk.Treeview(self.content_frame, columns=("ID", "Student", "Exam", "Score", "Date"), show='headings')
-        self.tree.heading("ID", text="ID")
-        self.tree.heading("Student", text="Student")
-        self.tree.heading("Exam", text="Exam")
-        self.tree.heading("Score", text="Score")
-        self.tree.heading("Date", text="Date")
-
-        self.tree.pack(fill='both', expand=True, padx=20, pady=20)
-
-        self.populate_results_tree()
-
-    def populate_results_tree(self):
-        conn = connect_db()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT r.id, u.name, e.title, r.score, r.date
-            FROM results r
-            JOIN students s ON r.student_id = s.id
-            JOIN exams e ON r.exam_id = e.id
-            JOIN users u ON s.id = u.id
-            WHERE e.subject = ? AND u.id = ? AND u.role = 'Student'
-        """, (self.user_info['subject'], self.user_info['id']))
-        
-        results = cursor.fetchall()
-
-        for result in results:
-            self.tree.insert("", 'end', values=result)
-
-        conn.close()
-
 
     def show_exams(self):
-        # Clear previous content
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
-
-        ttk.Label(self.content_frame, text="Manage Exams", style="Subtitle.TLabel").pack(pady=10)
-
-        self.tree = ttk.Treeview(self.content_frame, columns=("ID", "Title", "Subject", "Duration"), show='headings')
-        self.tree.heading("ID", text="ID")
-        self.tree.heading("Title", text="Title")
-        self.tree.heading("Subject", text="Subject")
-        self.tree.heading("Duration", text="Duration")
-
-        self.tree.pack(fill='both', expand=True, padx=20, pady=20)
-
-        # Add buttons for Add, Edit, and Delete
-        button_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
-        button_frame.pack(pady=10)
+        self.clear_content()
         
-        add_button = ttk.Button(button_frame, text="Add Exam", command=self.add_exam)
-        add_button.pack(side='left', padx=5)
+        # Header and action buttons
+        header_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        header_frame.pack(fill='x', pady=(0, 20))
         
-        edit_button = ttk.Button(button_frame, text="Edit Exam", command=self.edit_exam)
-        edit_button.pack(side='left', padx=5)
+        ttk.Label(header_frame, text="Manage Exams", style="Title.TLabel").pack(side='left')
         
-        delete_button = ttk.Button(button_frame, text="Delete Exam", command=self.delete_exam)
-        delete_button.pack(side='left', padx=5)
+        button_frame = ttk.Frame(header_frame, style="Content.TFrame")
+        button_frame.pack(side='right')
+        
+        ttk.Button(button_frame, text="Add Exam", style="Action.TButton",
+                command=self.show_add_exam_frame).pack(side='left', padx=5)
+        ttk.Button(button_frame, text="Edit Exam", style="Action.TButton",
+                command=self.show_edit_exam_frame).pack(side='left', padx=5)
+        ttk.Button(button_frame, text="Delete Exam", style="Action.TButton",
+                command=self.delete_exam).pack(side='left', padx=5)
+        
+        # Create Treeview
+        columns = ("ID", "Title", "Duration", "Total Marks")
+        self.exam_tree = ttk.Treeview(self.content_frame, columns=columns, show='headings')
+        
+        # Configure columns
+        for col in columns:
+            self.exam_tree.heading(col, text=col)
+            self.exam_tree.column(col, width=150)
+        
+        self.exam_tree.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        # Add scrollbar
+        scrollbar = ttk.Scrollbar(self.content_frame, orient='vertical',
+                                command=self.exam_tree.yview)
+        scrollbar.pack(side='right', fill='y')
+        self.exam_tree.configure(yscrollcommand=scrollbar.set)
+        
+        # Populate exams
+        self.populate_exams()
 
-        self.populate_exams_tree()
 
-    def populate_exams_tree(self):
-        conn = connect_db()
+    def populate_exams(self):
+        # Clear existing items
+        for item in self.exam_tree.get_children():
+            self.exam_tree.delete(item)
+            
+        conn = sqlite3.connect('exam_system.db')
         cursor = conn.cursor()
-
-        cursor.execute("SELECT id, title, subject, duration FROM exams WHERE subject = ?", (self.user_info['subject'],))
-        exams = cursor.fetchall()
-
-        for exam in exams:
-            self.tree.insert("", 'end', values=exam)
-
-        conn.close()
-
-    def show_questions(self):
-        # Clear previous content
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
-
-        ttk.Label(self.content_frame, text="Manage Questions", style="Subtitle.TLabel").pack(pady=10)
-
-        self.tree = ttk.Treeview(self.content_frame, columns=("ID", "Question", "Subject", "Option A", "Option B", "Option C", "Option D", "Correct Answer"), show='headings')
-        self.tree.heading("ID", text="ID")
-        self.tree.heading("Question", text="Question")
-        self.tree.heading("Subject", text="Subject")
-        self.tree.heading("Option A", text="Option A")
-        self.tree.heading("Option B", text="Option B")
-        self.tree.heading("Option C", text="Option C")
-        self.tree.heading("Option D", text="Option D")
-        self.tree.heading("Correct Answer", text="Correct Answer")
-
-        self.tree.pack(fill='both', expand=True, padx=20, pady=20)
-
-        # Add buttons for Add, Edit, and Delete
-        button_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
-        button_frame.pack(pady=10)
         
-        add_button = ttk.Button(button_frame, text="Add Question", command=self.add_question)
-        add_button.pack(side='left', padx=5)
-        
-        edit_button = ttk.Button(button_frame, text="Edit Question", command=self.edit_question)
-        edit_button.pack(side='left', padx=5)
-        
-        delete_button = ttk.Button(button_frame, text="Delete Question", command=self.delete_question)
-        delete_button.pack(side='left', padx=5)
+        try:
+            # Get exams for the teacher's subject
+            cursor.execute("""
+                SELECT e.id, e.title, e.duration, e.total_marks
+                FROM exams e
+                JOIN teachers t ON e.subject_id = t.subject_id
+                WHERE t.id = ?
+            """, (self.user_info['id'],))
+            
+            for row in cursor.fetchall():
+                self.exam_tree.insert("", 'end', values=row)
+                
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Database error: {e}")
+        finally:
+            conn.close()
 
-        self.populate_questions_tree()
+    def show_add_exam_frame(self):
+        self.clear_content()
 
-    def populate_questions_tree(self):
-        conn = connect_db()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT q.id, q.question, e.subject, q.option_a, q.option_b, q.option_c, q.option_d, q.correct_answer 
-            FROM questions q
-            JOIN exams e ON q.exam_id = e.id
-            WHERE e.subject = ?
-        """, (self.user_info['subject'],))
-        
-        questions = cursor.fetchall()
-
-        for question in questions:
-            self.tree.insert("", 'end', values=question)
-
-        conn.close()
-
-    def show_profile(self):
-        # Clear previous content
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
-
-        ttk.Label(self.content_frame, text="Profile Information", style="Subtitle.TLabel").pack(pady=10)
-
-        conn = connect_db()
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT username, name, email, role FROM users WHERE username = ?", (self.user_info['username'],))
-        profile_info = cursor.fetchone()
-
-        profile_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
-        profile_frame.pack(fill='both', expand=True, padx=20, pady=20)
-
-        if profile_info:
-            fields = ["Username", "Name", "Email", "Role"]
-            for i, field in enumerate(fields):
-                ttk.Label(profile_frame, text=f"{field}:", style="Text.TLabel").grid(row=i, column=0, padx=10, pady=10, sticky='e')
-                ttk.Label(profile_frame, text=profile_info[i], style="Text.TLabel").grid(row=i, column=1, padx=10, pady=10, sticky='w')
-
-        conn.close()
-
-    def add_question(self):
-        # Clear previous content
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
-
-        ttk.Label(self.content_frame, text="Add New Question", style="Subtitle.TLabel").pack(pady=10)
+        ttk.Label(self.content_frame, text="Add New Exam", style="Title.TLabel").pack(pady=10)
 
         form_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
         form_frame.pack(fill='both', expand=True, padx=20, pady=20)
 
-        fields = ["Question", "Option A", "Option B", "Option C", "Option D", "Correct Answer"]
+        fields = [("Title", tk.StringVar()), ("Duration (minutes)", tk.StringVar()), ("Total Marks", tk.StringVar())]
         entries = {}
 
-        for field in fields:
+        for idx, (label, var) in enumerate(fields):
             row = ttk.Frame(form_frame, style="Content.TFrame")
             row.pack(fill='x', pady=5)
 
-            label = ttk.Label(row, text=f"{field}:", style="Text.TLabel")
-            label.pack(side='left', padx=5)
-
-            entry = ttk.Entry(row, style="Content.TEntry")
+            ttk.Label(row, text=label, style="Text.TLabel").pack(side='left', padx=5)
+            entry = ttk.Entry(row, textvariable=var, style="Content.TEntry")
             entry.pack(side='left', fill='x', expand=True, padx=5)
-            entries[field] = entry
+            entries[label] = var
 
-        exam_id_entry = ttk.Entry(form_frame, style="Content.TEntry")
-        exam_id_entry.pack(pady=10)
+        # Subject for the exam (fixed based on teacher's subject)
+        subject_row = ttk.Frame(form_frame, style="Content.TFrame")
+        subject_row.pack(fill='x', pady=5)
 
-        submit_button = ttk.Button(form_frame, text="Add Question", style="Custom.TButton", command=lambda: self.submit_question(entries, exam_id_entry.get()))
+        ttk.Label(subject_row, text="Subject", style="Text.TLabel").pack(side='left', padx=5)
+        subject = self.user_info.get('subject', 'N/A')
+        ttk.Label(subject_row, text=subject, style="Text.TLabel").pack(side='left', padx=5)
+
+        submit_button = ttk.Button(form_frame, text="Add Exam", style="Action.TButton", 
+                                command=lambda: self.add_exam(entries))
         submit_button.pack(pady=20)
 
-    def submit_question(self, entries, exam_id):
-        conn = connect_db()
-        cursor = conn.cursor()
+        back_button = ttk.Button(form_frame, text="Back", style="Action.TButton", 
+                                command=self.show_exams)
+        back_button.pack(pady=10)
 
+    def add_exam(self, entries):
+        title = entries["Title"].get()
+        duration = entries["Duration (minutes)"].get()
+        total_marks = entries["Total Marks"].get()
+
+        if not title or not duration or not total_marks:
+            messagebox.showerror("Error", "All fields are required!")
+            return
+
+        subject_id = self.user_info.get('subject_id')
+        
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+        
         try:
             cursor.execute("""
-                INSERT INTO questions (exam_id, question, option_a, option_b, option_c, option_d, correct_answer)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (exam_id, entries["Question"].get(), entries["Option A"].get(), entries["Option B"].get(), entries["Option C"].get(), entries["Option D"].get(), entries["Correct Answer"].get()))
-
+                INSERT INTO exams (title, subject_id, duration, total_marks, created_by)
+                VALUES (?, ?, ?, ?, ?)
+            """, (title, subject_id, duration, total_marks, self.user_info['id']))
+            
             conn.commit()
-            messagebox.showinfo("Success", "Question added successfully!")
-            self.show_questions()
-
+            messagebox.showinfo("Success", "Exam added successfully!")
+            self.show_exams()
+            
         except sqlite3.Error as e:
-            messagebox.showerror("Database Error", f"An error occurred: {e}")
-
+            messagebox.showerror("Error", f"Database error: {e}")
+            
         finally:
             conn.close()
 
-    def edit_question(self):
-        selected_item = self.tree.selection()
+    def show_edit_exam_frame(self):
+        selected_item = self.exam_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select an exam to edit!")
+            return
+
+        exam_id = self.exam_tree.item(selected_item)['values'][0]
+        self.clear_content()
+        
+        ttk.Label(self.content_frame, text="Edit Exam", style="Title.TLabel").pack(pady=10)
+
+        form_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        form_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+        fields = [("Title", tk.StringVar()), ("Duration (minutes)", tk.StringVar()), ("Total Marks", tk.StringVar())]
+        entries = {}
+
+        for idx, (label, var) in enumerate(fields):
+            row = ttk.Frame(form_frame, style="Content.TFrame")
+            row.pack(fill='x', pady=5)
+
+            ttk.Label(row, text=label, style="Text.TLabel").pack(side='left', padx=5)
+            entry = ttk.Entry(row, textvariable=var, style="Content.TEntry")
+            entry.pack(side='left', fill='x', expand=True, padx=5)
+            entries[label] = var
+
+        # Fetch exam details from the database
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                SELECT title, duration, total_marks 
+                FROM exams 
+                WHERE id = ?
+            """, (exam_id,))
+            exam = cursor.fetchone()
+            
+            entries["Title"].set(exam[0])
+            entries["Duration (minutes)"].set(exam[1])
+            entries["Total Marks"].set(exam[2])
+            
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Database error: {e}")
+            
+        finally:
+            conn.close()
+
+        submit_button = ttk.Button(form_frame, text="Save Changes", style="Action.TButton",
+                                command=lambda: self.edit_exam(entries, exam_id))
+        submit_button.pack(pady=20)
+
+        back_button = ttk.Button(form_frame, text="Back", style="Action.TButton",
+                                command=self.show_exams)
+        back_button.pack(pady=10)
+
+    def edit_exam(self, entries, exam_id):
+        title = entries["Title"].get()
+        duration = entries["Duration (minutes)"].get()
+        total_marks = entries["Total Marks"].get()
+
+        if not title or not duration or not total_marks:
+            messagebox.showerror("Error", "All fields are required!")
+            return
+        
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                UPDATE exams
+                SET title = ?, duration = ?, total_marks = ?
+                WHERE id = ?
+            """, (title, duration, total_marks, exam_id))
+            
+            conn.commit()
+            messagebox.showinfo("Success", "Exam updated successfully!")
+            self.show_exams()
+            
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Database error: {e}")
+            
+        finally:
+            conn.close()
+
+
+    def delete_exam(self):
+        selected_item = self.exam_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select an exam to delete!")
+            return
+
+        exam_id = self.exam_tree.item(selected_item)['values'][0]
+        confirm = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this exam?")
+
+        if not confirm:
+            return
+
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("DELETE FROM exams WHERE id = ?", (exam_id,))
+            conn.commit()
+            messagebox.showinfo("Success", "Exam deleted successfully!")
+            self.populate_exams()
+        
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Database error: {e}")
+        
+        finally:
+            conn.close()
+
+
+    def show_questions(self):
+        self.clear_content()
+        
+        # Header and action buttons
+        header_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        header_frame.pack(fill='x', pady=(0, 20))
+        
+        ttk.Label(header_frame, text="Manage Questions", style="Title.TLabel").pack(side='left')
+        
+        button_frame = ttk.Frame(header_frame, style="Content.TFrame")
+        button_frame.pack(side='right')
+        
+        ttk.Button(button_frame, text="Add Question", style="Action.TButton",
+                command=self.show_add_question_frame).pack(side='left', padx=5)
+        ttk.Button(button_frame, text="Edit Question", style="Action.TButton",
+                command=self.show_edit_question_frame).pack(side='left', padx=5)
+        ttk.Button(button_frame, text="Delete Question", style="Action.TButton",
+                command=self.delete_question).pack(side='left', padx=5)
+        
+        # Create Treeview
+        columns = ("ID", "Exam", "Question", "Correct Answer", "Marks")
+        self.question_tree = ttk.Treeview(self.content_frame, columns=columns, show='headings')
+        
+        # Configure columns
+        widths = {"ID": 50, "Exam": 200, "Question": 400, "Correct Answer": 100, "Marks": 100}
+        for col, width in widths.items():
+            self.question_tree.heading(col, text=col)
+            self.question_tree.column(col, width=width)
+        
+        self.question_tree.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        # Add scrollbar
+        scrollbar = ttk.Scrollbar(self.content_frame, orient='vertical',
+                                command=self.question_tree.yview)
+        scrollbar.pack(side='right', fill='y')
+        self.question_tree.configure(yscrollcommand=scrollbar.set)
+        
+        # Populate questions
+        self.populate_questions()
+
+
+
+    def populate_questions(self):
+        # Clear existing items
+        for item in self.question_tree.get_children():
+            self.question_tree.delete(item)
+            
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                SELECT q.id, e.title, q.question, q.correct_answer, q.marks
+                FROM questions q
+                JOIN exams e ON q.exam_id = e.id
+                JOIN teachers t ON e.subject_id = t.subject_id
+                WHERE t.id = ?
+            """, (self.user_info['id'],))
+            
+            for row in cursor.fetchall():
+                self.question_tree.insert("", 'end', values=row)
+                
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Database error: {e}")
+        finally:
+            conn.close()
+
+
+    def show_add_question_frame(self):
+        self.clear_content()
+
+        ttk.Label(self.content_frame, text="Add New Question", style="Title.TLabel").pack(pady=10)
+
+        form_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        form_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+        # Get available exams
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT e.id, e.title
+            FROM exams e
+            JOIN teachers t ON e.subject_id = t.subject_id
+            WHERE t.id = ?
+        """, (self.user_info['id'],))
+        exams = cursor.fetchall()
+        conn.close()
+        
+        # Select Exam
+        ttk.Label(form_frame, text="Select Exam:", style="Text.TLabel").grid(row=0, column=0, padx=5, pady=5, sticky='w')
+        exam_var = tk.StringVar()
+        exam_combo = ttk.Combobox(form_frame, textvariable=exam_var, state="readonly")
+        exam_combo['values'] = [exam[1] for exam in exams]
+        exam_combo.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+        
+        # Question
+        ttk.Label(form_frame, text="Question:", style="Text.TLabel").grid(row=1, column=0, padx=5, pady=5, sticky='w')
+        question_entry = tk.Text(form_frame, height=4, width=50)
+        question_entry.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
+        
+        # Options A, B, C, D
+        ttk.Label(form_frame, text="Option A:", style="Text.TLabel").grid(row=2, column=0, padx=5, pady=5, sticky='w')
+        option_a_entry = ttk.Entry(form_frame)
+        option_a_entry.grid(row=2, column=1, padx=5, pady=5, sticky='ew')
+        
+        ttk.Label(form_frame, text="Option B:", style="Text.TLabel").grid(row=3, column=0, padx=5, pady=5, sticky='w')
+        option_b_entry = ttk.Entry(form_frame)
+        option_b_entry.grid(row=3, column=1, padx=5, pady=5, sticky='ew')
+        
+        ttk.Label(form_frame, text="Option C:", style="Text.TLabel").grid(row=4, column=0, padx=5, pady=5, sticky='w')
+        option_c_entry = ttk.Entry(form_frame)
+        option_c_entry.grid(row=4, column=1, padx=5, pady=5, sticky='ew')
+        
+        ttk.Label(form_frame, text="Option D:", style="Text.TLabel").grid(row=5, column=0, padx=5, pady=5, sticky='w')
+        option_d_entry = ttk.Entry(form_frame)
+        option_d_entry.grid(row=5, column=1, padx=5, pady=5, sticky='ew')
+        
+        # Correct Answer
+        ttk.Label(form_frame, text="Correct Answer:", style="Text.TLabel").grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        correct_var = tk.StringVar()
+        correct_combo = ttk.Combobox(form_frame, textvariable=correct_var, state="readonly")
+        correct_combo['values'] = ['A', 'B', 'C', 'D']
+        correct_combo.grid(row=6, column=1, padx=5, pady=5, sticky='ew')
+        
+        def save_question():
+            exam_title = exam_var.get()
+            question = question_entry.get("1.0", "end-1c")
+            option_a = option_a_entry.get()
+            option_b = option_b_entry.get()
+            option_c = option_c_entry.get()
+            option_d = option_d_entry.get()
+            correct = correct_var.get()
+            
+            if not all([exam_title, question, option_a, option_b, option_c, option_d, correct]):
+                messagebox.showerror("Error", "All fields are required!")
+                return
+                
+            # Get exam_id from title
+            exam_id = next(exam[0] for exam in exams if exam[1] == exam_title)
+            
+            conn = sqlite3.connect('exam_system.db')
+            cursor = conn.cursor()
+            
+            try:
+                cursor.execute("""
+                    INSERT INTO questions (exam_id, question, option_a, option_b, option_c, option_d, 
+                                        correct_answer, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (exam_id, question, option_a, option_b, option_c, option_d, correct, self.user_info['id']))
+                
+                conn.commit()
+                messagebox.showinfo("Success", "Question added successfully!")
+                self.show_questions()
+                
+            except sqlite3.Error as e:
+                messagebox.showerror("Error", f"Database error: {e}")
+            finally:
+                conn.close()
+        
+        ttk.Button(form_frame, text="Save", style="Action.TButton",
+                command=save_question).grid(row=7, column=1, padx=5, pady=20, sticky='ew')
+                
+        back_button = ttk.Button(form_frame, text="Back", style="Action.TButton", 
+                                command=self.show_questions)
+        back_button.grid(row=8, column=1, padx=5, pady=10, sticky='ew')
+
+    def show_edit_question_frame(self):
+        selected_item = self.question_tree.selection()
         if not selected_item:
             messagebox.showerror("Error", "Please select a question to edit!")
             return
 
-        question_id = self.tree.item(selected_item, 'values')[0]
-        self.show_edit_question_page(question_id)
-
-    def show_edit_question_page(self, question_id):
-        # Clear previous content
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
-
-        ttk.Label(self.content_frame, text="Edit Question", style="Subtitle.TLabel").pack(pady=10)
-
-        conn = connect_db()
-        cursor = conn.cursor()
-        cursor.execute("SELECT question, option_a, option_b, option_c, option_d, correct_answer FROM questions WHERE id = ?", (question_id,))
-        question_data = cursor.fetchone()
-        conn.close()
+        question_id = self.question_tree.item(selected_item)['values'][0]
+        self.clear_content()
+        
+        ttk.Label(self.content_frame, text="Edit Question", style="Title.TLabel").pack(pady=10)
 
         form_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
         form_frame.pack(fill='both', expand=True, padx=20, pady=20)
 
-        fields = ["Question", "Option A", "Option B", "Option C", "Option D", "Correct Answer"]
-        entries = {}
-
-        for i, field in enumerate(fields):
-            row = ttk.Frame(form_frame, style="Content.TFrame")
-            row.pack(fill='x', pady=5)
-
-            label = ttk.Label(row, text=f"{field}:", style="Text.TLabel")
-            label.pack(side='left', padx=5)
-
-            entry = ttk.Entry(row, style="Content.TEntry")
-            entry.insert(0, question_data[i])
-            entry.pack(side='left', fill='x', expand=True, padx=5)
-            entries[field] = entry
-
-        submit_button = ttk.Button(form_frame, text="Save Changes", style="Custom.TButton", command=lambda: self.update_question(entries, question_id))
-        submit_button.pack(pady=20)
-
-    def update_question(self, entries, question_id):
-        conn = connect_db()
+        # Get available exams
+        conn = sqlite3.connect('exam_system.db')
         cursor = conn.cursor()
-
-        try:
-            cursor.execute("""
-                UPDATE questions
-                SET question = ?, option_a = ?, option_b = ?, option_c = ?, option_d = ?, correct_answer = ?
-                WHERE id = ?
-            """, (entries["Question"].get(), entries["Option A"].get(), entries["Option B"].get(), entries["Option C"].get(), entries["Option D"].get(), entries["Correct Answer"].get(), question_id))
-
-            conn.commit()
-            messagebox.showinfo("Success", "Question updated successfully!")
-            self.show_questions()
-
-        except sqlite3.Error as e:
-            messagebox.showerror("Database Error", f"An error occurred: {e}")
-
-        finally:
-            conn.close()
+        cursor.execute("""
+            SELECT e.id, e.title
+            FROM exams e
+            JOIN teachers t ON e.subject_id = t.subject_id
+            WHERE t.id = ?
+        """, (self.user_info['id'],))
+        exams = cursor.fetchall()
+        
+        cursor.execute("""
+            SELECT exam_id, question, option_a, option_b, option_c, option_d, correct_answer
+            FROM questions 
+            WHERE id = ?
+        """, (question_id,))
+        question_data = cursor.fetchone()
+        conn.close()
+        
+        exam_var = tk.StringVar(value=next(exam[1] for exam in exams if exam[0] == question_data[0]))
+        question_var = tk.StringVar(value=question_data[1])
+        option_a_var = tk.StringVar(value=question_data[2])
+        option_b_var = tk.StringVar(value=question_data[3])
+        option_c_var = tk.StringVar(value=question_data[4])
+        option_d_var = tk.StringVar(value=question_data[5])
+        correct_var = tk.StringVar(value=question_data[6])
+        
+        ttk.Label(form_frame, text="Select Exam:", style="Text.TLabel").grid(row=0, column=0, padx=5, pady=5, sticky='w')
+        exam_combo = ttk.Combobox(form_frame, textvariable=exam_var, state="readonly")
+        exam_combo['values'] = [exam[1] for exam in exams]
+        exam_combo.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+        
+        ttk.Label(form_frame, text="Question:", style="Text.TLabel").grid(row=1, column=0, padx=5, pady=5, sticky='w')
+        question_entry = tk.Text(form_frame, height=4, width=50)
+        question_entry.insert(tk.END, question_var.get())
+        question_entry.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
+        
+        ttk.Label(form_frame, text="Option A:", style="Text.TLabel").grid(row=2, column=0, padx=5, pady=5, sticky='w')
+        option_a_entry = ttk.Entry(form_frame, textvariable=option_a_var)
+        option_a_entry.grid(row=2, column=1, padx=5, pady=5, sticky='ew')
+        
+        ttk.Label(form_frame, text="Option B:", style="Text.TLabel").grid(row=3, column=0, padx=5, pady=5, sticky='w')
+        option_b_entry = ttk.Entry(form_frame, textvariable=option_b_var)
+        option_b_entry.grid(row=3, column=1, padx=5, pady=5, sticky='ew')
+        
+        ttk.Label(form_frame, text="Option C:", style="Text.TLabel").grid(row=4, column=0, padx=5, pady=5, sticky='w')
+        option_c_entry = ttk.Entry(form_frame, textvariable=option_c_var)
+        option_c_entry.grid(row=4, column=1, padx=5, pady=5, sticky='ew')
+        
+        ttk.Label(form_frame, text="Option D:", style="Text.TLabel").grid(row=5, column=0, padx=5, pady=5, sticky='w')
+        option_d_entry = ttk.Entry(form_frame, textvariable=option_d_var)
+        option_d_entry.grid(row=5, column=1, padx=5, pady=5, sticky='ew')
+        
+        ttk.Label(form_frame, text="Correct Answer:", style="Text.TLabel").grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        correct_combo = ttk.Combobox(form_frame, textvariable=correct_var, state="readonly")
+        correct_combo['values'] = ['A', 'B', 'C', 'D']
+        correct_combo.grid(row=6, column=1, padx=5, pady=5, sticky='ew')
+        
+        def update_question():
+            exam_title = exam_var.get()
+            question = question_entry.get("1.0", "end-1c")
+            option_a = option_a_var.get()
+            option_b = option_b_var.get()
+            option_c = option_c_var.get()
+            option_d = option_d_var.get()
+            correct = correct_var.get()
+            
+            if not all([exam_title, question, option_a, option_b, option_c, option_d, correct]):
+                messagebox.showerror("Error", "All fields are required!")
+                return
+                
+            # Get exam_id from title
+            exam_id = next(exam[0] for exam in exams if exam[1] == exam_title)
+            
+            conn = sqlite3.connect('exam_system.db')
+            cursor = conn.cursor()
+            
+            try:
+                cursor.execute("""
+                    UPDATE questions
+                    SET exam_id = ?, question = ?, option_a = ?, option_b = ?, option_c = ?, option_d = ?, 
+                        correct_answer = ?
+                    WHERE id = ?
+                """, (exam_id, question, option_a, option_b, option_c, option_d, correct, question_id))
+                
+                conn.commit()
+                messagebox.showinfo("Success", "Question updated successfully!")
+                self.show_questions()
+                
+            except sqlite3.Error as e:
+                messagebox.showerror("Error", f"Database error: {e}")
+            finally:
+                conn.close()
+        
+        ttk.Button(form_frame, text="Save Changes", style="Action.TButton",
+                command=update_question).grid(row=7, column=1, padx=5, pady=20, sticky='ew')
+                
+        back_button = ttk.Button(form_frame, text="Back", style="Action.TButton", 
+                                command=self.show_questions)
+        back_button.grid(row=8, column=1, padx=5, pady=10, sticky='ew')
 
     def delete_question(self):
-        selected_item = self.tree.selection()
+        selected_item = self.question_tree.selection()
         if not selected_item:
             messagebox.showerror("Error", "Please select a question to delete!")
             return
 
-        question_id = self.tree.item(selected_item, 'values')[0]
-
+        question_id = self.question_tree.item(selected_item)['values'][0]
         confirm = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this question?")
+
         if not confirm:
             return
 
-        conn = connect_db()
+        conn = sqlite3.connect('exam_system.db')
         cursor = conn.cursor()
 
         try:
             cursor.execute("DELETE FROM questions WHERE id = ?", (question_id,))
             conn.commit()
             messagebox.showinfo("Success", "Question deleted successfully!")
-            self.show_questions()
+            self.populate_questions()
+        
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Database error: {e}")
+        
+        finally:
+            conn.close()
 
+
+    def show_results(self):
+        self.clear_content()
+        
+        # Header
+        ttk.Label(self.content_frame, text="View Results", style="Title.TLabel").pack(pady=(0, 20))
+        
+        # Create Treeview
+        columns = ("ID", "Student", "Exam", "Score", "Date")
+        self.results_tree = ttk.Treeview(self.content_frame, columns=columns, show='headings')
+        
+        # Configure columns
+        widths = {"ID": 50, "Student": 200, "Exam": 200, "Score": 100, "Date": 150}
+        for col, width in widths.items():
+            self.results_tree.heading(col, text=col)
+            self.results_tree.column(col, width=width)
+        
+        self.results_tree.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        # Add scrollbar
+        scrollbar = ttk.Scrollbar(self.content_frame, orient='vertical',
+                                command=self.results_tree.yview)
+        scrollbar.pack(side='right', fill='y')
+        self.results_tree.configure(yscrollcommand=scrollbar.set)
+        
+        # Populate results
+        self.populate_results()
+
+    def populate_results(self):
+        # Clear existing items
+        for item in self.results_tree.get_children():
+            self.results_tree.delete(item)
+            
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                SELECT r.id, u.name, e.title, r.score, r.date
+                FROM results r
+                JOIN students s ON r.student_id = s.id
+                JOIN users u ON s.id = u.id
+                JOIN exams e ON r.exam_id = e.id
+                JOIN teachers t ON e.subject_id = t.subject_id
+                WHERE t.id = ?
+            """, (self.user_info['id'],))
+            
+            for row in cursor.fetchall():
+                self.results_tree.insert("", 'end', values=row)
+                
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Database error: {e}")
+        finally:
+            conn.close()
+
+    def show_profile(self):
+        self.clear_content()
+
+        ttk.Label(self.content_frame, text="Teacher Profile", style="Title.TLabel").pack(pady=10)
+
+        profile_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        profile_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT u.username, u.name, u.email, t.phone, s.subject_name
+            FROM users u
+            JOIN teachers t ON u.id = t.id
+            JOIN subjects s ON t.subject_id= s.id
+            WHERE u.id = ?
+        """, (self.user_info['id'],))
+        profile_data = cursor.fetchone()
+
+        conn.close()
+
+        if not profile_data:
+            messagebox.showerror("Error", "Unable to fetch profile information.")
+            return
+
+        labels = ["Username", "Name", "Email", "Phone", "Subject"]
+        values = list(profile_data)
+
+        for label, value in zip(labels, values):
+            row = ttk.Frame(profile_frame, style="Content.TFrame")
+            row.pack(fill='x', pady=5)
+
+            ttk.Label(row, text=f"{label}:", style="Text.TLabel").pack(side='left', padx=5)
+            ttk.Label(row, text=value or "Not provided", style="Text.TLabel").pack(side='left', padx=5)
+
+        edit_button = ttk.Button(profile_frame, text="Edit Profile", style="Action.TButton", command=lambda: self.show_edit_profile(profile_data))
+        edit_button.pack(pady=20)
+
+
+    def show_edit_profile(self, profile_data):
+        self.clear_content()
+
+        ttk.Label(self.content_frame, text="Edit Profile", style="Title.TLabel").pack(pady=10)
+
+        form_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
+        form_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+        labels = ["Username", "Name", "Email", "Phone", "Subject"]
+        updated_entries = {}
+
+        for idx, label in enumerate(labels):
+            row = ttk.Frame(form_frame, style="Content.TFrame")
+            row.pack(fill='x', pady=5)
+
+            ttk.Label(row, text=f"{label}:", style="Text.TLabel").pack(side='left', padx=5)
+            entry_var = tk.StringVar(value=profile_data[idx])
+            if label == "Subject":
+                entry = ttk.Entry(row, textvariable=entry_var, style="Content.TEntry", state="readonly")
+            else:
+                entry = ttk.Entry(row, textvariable=entry_var, style="Content.TEntry")
+            entry.pack(side='left', fill='x', expand=True, padx=5)
+            updated_entries[label] = entry_var
+
+        def save_profile():
+            username = updated_entries["Username"].get()
+            name = updated_entries["Name"].get()
+            email = updated_entries["Email"].get()
+            phone = updated_entries["Phone"].get()
+
+            if not all([username, name, email, phone]):
+                messagebox.showerror("Error", "All fields are required!")
+                return
+
+            conn = sqlite3.connect('exam_system.db')
+            cursor = conn.cursor()
+
+            try:
+                cursor.execute("""
+                    UPDATE users
+                    SET username = ?, name = ?, email = ?
+                    WHERE id = ?
+                """, (username, name, email, self.user_info['id']))
+
+                cursor.execute("""
+                    UPDATE teachers
+                    SET phone = ?
+                    WHERE id = ?
+                """, (phone, self.user_info['id']))
+
+                conn.commit()
+                messagebox.showinfo("Success", "Profile updated successfully!")
+                self.show_profile()
+
+            except sqlite3.Error as e:
+                messagebox.showerror("Error", f"Database error: {e}")
+            
+            finally:
+                conn.close()
+
+        save_button = ttk.Button(form_frame, text="Save Changes", style="Action.TButton", command=save_profile)
+        save_button.pack(pady=20)
+
+        back_button = ttk.Button(form_frame, text="Back", style="Action.TButton", command=self.show_profile)
+        back_button.pack(pady=10)
+
+    # Database helper methods
+    def populate_results_tree(self, tree):
+        conn = connect_db()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                SELECT r.id, u.name, e.title, r.score, r.date
+                FROM results r
+                JOIN students s ON r.student_id = s.id
+                JOIN exams e ON r.exam_id = e.id
+                JOIN users u ON s.id = u.id
+                WHERE e.subject = ?
+            """, (self.user_info['subject'],))
+            
+            for row in cursor.fetchall():
+                tree.insert("", 'end', values=row)
         except sqlite3.Error as e:
             messagebox.showerror("Database Error", f"An error occurred: {e}")
-
         finally:
             conn.close()
 
     def logout(self):
         if messagebox.askyesno("Confirm Logout", "Are you sure you want to logout?"):
             self.root.destroy()
-            # Create new main window
+            # Create new main window and show login screen
             root = tk.Tk()
             from main import UserTypeSelection
             UserTypeSelection(root)
             root.mainloop()
+
+def connect_db():
+    return sqlite3.connect('exam_system.db')

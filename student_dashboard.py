@@ -8,7 +8,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 import io
-
+from PIL import Image, ImageTk
 class StudentDashboard:
     def __init__(self, root, student_id, login_window):
         self.root = root
@@ -188,7 +188,6 @@ class StudentDashboard:
             """, (self.student_id,))
 
             student_info = cursor.fetchone()
-            print(student_info)
             
             if student_info:
                 info_frame = ttk.Frame(self.current_page, style="Card.TFrame")
@@ -349,12 +348,13 @@ class StudentDashboard:
         try:
             # Get exams that student hasn't taken yet
             cursor.execute("""
-                SELECT id, title, subject, duration 
-                FROM exams 
-                WHERE id NOT IN (
+                SELECT e.id, e.title, s.subject_name, e.duration
+                FROM exams e
+                JOIN subjects s ON e.subject_id = s.id
+                WHERE e.id NOT IN (
                     SELECT exam_id FROM results WHERE student_id = ?
                 )
-                ORDER BY id DESC
+                ORDER BY e.id DESC
             """, (self.student_id,))
             
             exams = cursor.fetchall()
@@ -371,11 +371,11 @@ class StudentDashboard:
             
             # Insert available exams into the tree
             for exam in exams:
-                exam_id, title, subject, duration = exam
+                exam_id, title, subject_name, duration = exam
                 self.exam_tree.insert('', 'end', values=(
                     exam_id,
                     title,
-                    subject,
+                    subject_name,
                     duration
                 ))
         
@@ -384,6 +384,7 @@ class StudentDashboard:
             messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
         finally:
             conn.close()
+
 
     def show_results(self):
         if self.current_page == "results":

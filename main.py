@@ -92,7 +92,7 @@ class UserTypeSelection:
 
         try:
             cursor.execute('''
-                SELECT u.id, u.name, u.email, u.role, s.subject_name, t.id
+                SELECT u.id, u.name, u.email, u.role, s.id, t.id
                 FROM users u
                 LEFT JOIN teachers t ON u.id = t.id
                 LEFT JOIN subjects s ON t.subject_id = s.id
@@ -106,7 +106,7 @@ class UserTypeSelection:
                     "name": user[1],
                     "email": user[2],
                     "role": user[3],
-                    "subject": user[4],  # Subject name fetched from `subjects`
+                    "subject_id": user[4], 
                     "teacher_id": user[5]  # Teacher ID
                 }
                 self.failed_attempts = 0
