@@ -4,7 +4,7 @@ import sqlite3
 import hashlib
 from admin_dashboard import AdminDashboard
 from student_dashboard import StudentDashboard
-from Teacher_deshboard import TeacherDashboard
+from Teacher_dashboard import TeacherDashboard
 from hashlib import sha256 
 from time import time
 
