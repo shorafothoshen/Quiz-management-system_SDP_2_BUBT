@@ -47,7 +47,7 @@ class TeacherDashboard:
         self.content_frame.pack(fill='both', expand=True, padx=20, pady=10)
         
         # Initialize with dashboard view
-        self.show_dashboard()
+        self.show_profile()
 
     def setup_styles(self):
         self.style = ttk.Style()
@@ -165,58 +165,6 @@ class TeacherDashboard:
         ttk.Label(header,
                  text=current_time,
                  style="SidebarBtn.TLabel").pack(side='right', padx=20)
-
-    def show_dashboard(self):
-        self.clear_content()
-        
-        # Create dashboard widgets
-        stats_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
-        stats_frame.pack(fill='x', pady=20)
-        
-        # Stats cards
-        self.create_stat_card(stats_frame, "Total Exams", "15", 0)
-        self.create_stat_card(stats_frame, "Active Students", "150", 1)
-        self.create_stat_card(stats_frame, "Average Score", "75%", 2)
-        self.create_stat_card(stats_frame, "Pending Reviews", "5", 3)
-
-        # Recent Activity Section
-        activity_frame = ttk.Frame(self.content_frame, style="Content.TFrame")
-        activity_frame.pack(fill='both', expand=True, pady=20)
-        
-        ttk.Label(activity_frame,
-                 text="Recent Activity",
-                 style="Header.TLabel").pack(anchor='w', pady=(0, 10))
-        
-        # Activity list using Treeview
-        tree = ttk.Treeview(activity_frame, columns=("Date", "Activity", "Status"),
-                           show='headings', height=6)
-        tree.heading("Date", text="Date")
-        tree.heading("Activity", text="Activity")
-        tree.heading("Status", text="Status")
-        
-        # Sample data
-        activities = [
-            ("2024-12-27", "Physics Final Exam", "Completed"),
-            ("2024-12-26", "Chemistry Quiz", "In Progress"),
-            ("2024-12-25", "Math Assignment", "Pending Review")
-        ]
-        
-        for item in activities:
-            tree.insert("", 'end', values=item)
-        
-        tree.pack(fill='both', expand=True)
-
-    def create_stat_card(self, parent, title, value, column):
-        card = ttk.Frame(parent, style="Content.TFrame")
-        card.grid(row=0, column=column, padx=10, pady=10, sticky='nsew')
-        
-        ttk.Label(card,
-                 text=title,
-                 style="SidebarBtn.TLabel").pack(pady=(10, 5))
-        
-        ttk.Label(card,
-                 text=value,
-                 style="Header.TLabel").pack(pady=(0, 10))
 
     def clear_content(self):
         for widget in self.content_frame.winfo_children():
