@@ -1434,6 +1434,18 @@ class AdminDashboard:
 
         question_id = self.question_tree.item(selected_item, 'values')[0]
         self.show_edit_question_page(question_id)
+    
+    def get_exam_title(self, exam_id):
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT title FROM exams WHERE id = ?", (exam_id,))
+        exam_title = cursor.fetchone()
+
+        conn.close()
+
+        return exam_title[0] if exam_title else "Unknown Exam"
+
 
     def show_edit_question_page(self, question_id):
         self.clear_content()
