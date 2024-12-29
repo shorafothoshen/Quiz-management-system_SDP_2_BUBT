@@ -79,7 +79,7 @@ class UserTypeSelection:
         if self.lock_time and time() < self.lock_time:
             remaining_time = int(self.lock_time - time())
             messagebox.showerror("Locked", f"Too many failed attempts. Try again in {remaining_time} seconds.")
-            return
+            return 
 
         if self.lock_time and time() >= self.lock_time:
             self.failed_attempts = 0
@@ -227,12 +227,6 @@ class StudentRegistration:
     def go_back(self):
         self.main_container.destroy()
         UserTypeSelection(self.root)
-
-
-class ExamInterface:
-    def __init__(self, root, student_id, exam_id):
-        from exam_interface import ExamInterface
-        return ExamInterface(root, student_id, exam_id)
 
 
 if __name__ == "__main__":

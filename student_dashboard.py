@@ -9,6 +9,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 import io
 from PIL import Image, ImageTk
+
 class StudentDashboard:
     def __init__(self, root, student_id, login_window):
         self.root = root
@@ -16,6 +17,13 @@ class StudentDashboard:
         self.login_window = login_window
         self.root.title("Student Dashboard")
         self.current_page = None
+        self.questions = []
+        self.answers = {}
+        self.current_question = 0
+        self.timer_active = False
+        self.exam_id = None
+        self.exam_title = None
+        self.duration = None
         
         # Initialize database tables
         self.init_database()
@@ -23,7 +31,13 @@ class StudentDashboard:
         # Configure the window
         self.root.state('zoomed')  # Maximize window
         
-        # Configure colors
+        # Configure the window
+        self.root.title("Exam Interface")
+        self.root.state('zoomed')  # Maximize window
+
+    # Include the remaining methods and logic as provided...
+
+        # Configure colors and styles
         self.colors = {
             'bg_dark': '#0B1437',       # Dark blue background
             'menu_bg': '#1B2B65',       # Slightly lighter blue for menu
@@ -34,7 +48,10 @@ class StudentDashboard:
             'text_secondary': '#A0AEC0', # Secondary text color
             'hover': '#2A3F7E',         # Hover state color
             'selected': '#2A3F7E',      # Selected row color
-            'primary': '#1B2B65'        # Primary color
+            'primary': '#1B2B65',       # Primary color
+            'success': '#4CAF50',       # Success color (green)
+            'error': '#F44336',         # Error color (red)
+            'warning': '#FFA726'        # Warning color (orange)
         }
         
         # Configure styles
@@ -72,35 +89,21 @@ class StudentDashboard:
                       background=[('selected', self.colors['selected'])],
                       foreground=[('selected', self.colors['text'])])
         
-        # Main container
-        self.main_container = ttk.Frame(root, style="Content.TFrame")
-        self.main_container.pack(fill='both', expand=True)
+        # Create main content frame
+        self.content_frame = ttk.Frame(self.root, style="Content.TFrame")
+        self.content_frame.pack(side='right', fill='both', expand=True)
         
-        # Create left menu
-        self.menu_frame = ttk.Frame(self.main_container, style="Menu.TFrame", width=250)
-        self.menu_frame.pack(side='left', fill='y')
-        self.menu_frame.pack_propagate(False)
+        # Setup menu
+        self.setup_menu()
         
-        # Dashboard header in menu
-        header_frame = ttk.Frame(self.menu_frame, style="Menu.TFrame")
-        header_frame.pack(fill='x', pady=(30, 20), padx=20)
+        # Show available exams by default
+        self.show_available_exams()
         
-        ttk.Label(header_frame, 
-                 text="Student Portal",
-                 font=('Segoe UI', 20, 'bold'),
-                 foreground=self.colors['text'],
-                 background=self.colors['menu_bg']).pack(anchor='w')
+        # Initialize database tables
+        self.init_database()
         
-        ttk.Label(header_frame,
-                 text="Manage your exams and results",
-                 font=('Segoe UI', 10),
-                 foreground=self.colors['text_secondary'],
-                 background=self.colors['menu_bg']).pack(anchor='w', pady=(5,0))
-        
-        # Menu items with icons
-        self.create_menu_button("📝 Available Exams", self.show_available_exams)
-        self.create_menu_button("📊 My Results", self.show_results)
-        self.create_menu_button("👤 My Profile", self.show_profile)
+        # Configure the window
+        self.root.state('zoomed')  # Maximize window
         
         # Get student info for profile section (with additional details)
         conn = sqlite3.connect('exam_system.db')
@@ -140,128 +143,59 @@ class StudentDashboard:
                   style="MenuButton.TButton",
                   command=self.logout).pack(fill='x', pady=(10,0))
         
-        # Content area
-        self.content_frame = ttk.Frame(self.main_container, style="Content.TFrame")
-        self.content_frame.pack(side='left', fill='both', expand=True, padx=30, pady=30)
+    def setup_menu(self):
+        """Set up the menu buttons"""
+        self.menu_frame = ttk.Frame(self.root, style="Menu.TFrame")
+        self.menu_frame.pack(side='left', fill='y')
         
-        # Initialize with available exams view
-        self.show_available_exams()
+        # Configure menu frame background
+        self.menu_frame.configure(style='Menu.TFrame')
         
-    
-    def create_menu_button(self, text, command):
-        btn = ttk.Button(self.menu_frame,
-                        text=text,
-                        style="MenuButton.TButton",
-                        command=command)
-        btn.pack(fill='x', pady=2, padx=20)
-        return btn
-    
-    def clear_current_page(self):
-        if self.current_page and self.current_page.winfo_exists():
-            self.current_page.destroy()
-        self.current_page = None
-
-    def show_dashboard(self):
-        self.clear_current_page()
-        self.current_page = ttk.Frame(self.content_frame, style="Content.TFrame")
-        self.current_page.pack(fill='both', expand=True)
+        # Available Exams button
+        ttk.Button(
+            self.menu_frame,
+            text="Available Exams",
+            style="MenuButton.TButton",
+            command=self.show_available_exams
+        ).pack(fill='x', padx=10, pady=5)
         
-        # Add dashboard content
-        welcome_label = ttk.Label(
-            self.current_page,
-            text="Welcome to Your Dashboard",
-            style="Title.TLabel"
-        )
-        welcome_label.pack(pady=20)
-
-        # Fetch student information
-        conn = sqlite3.connect('exam_system.db')
-        cursor = conn.cursor()
+        # My Results button
+        ttk.Button(
+            self.menu_frame,
+            text="My Results",
+            style="MenuButton.TButton",
+            command=self.show_results
+        ).pack(fill='x', padx=10, pady=5)
         
-        try:
-            # Corrected query to fetch student information
-            cursor.execute("""
-            SELECT u.name, s.class 
-            FROM users u
-            JOIN students s ON u.id = s.id
-            WHERE u.id = ?
-            """, (self.student_id,))
+        # Profile button
+        ttk.Button(
+            self.menu_frame,
+            text="My Profile",
+            style="MenuButton.TButton",
+            command=self.show_profile
+        ).pack(fill='x', padx=10, pady=5)
+        
+    def clear_content(self):
+        """Clear all widgets from the content frame"""
+        # Destroy all widgets in the content frame
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
+            
+        # Reset the frame's size and position
+        self.content_frame.pack_configure(fill='both', expand=True)
 
-            student_info = cursor.fetchone()
-            
-            if student_info:
-                info_frame = ttk.Frame(self.current_page, style="Card.TFrame")
-                info_frame.pack(fill='x', padx=20, pady=10)
-                
-                ttk.Label(
-                    info_frame,
-                    text=f"Name: {student_info[0]}",
-                    style="Card.TLabel"
-                ).pack(pady=5)
-                
-                ttk.Label(
-                    info_frame,
-                    text=f"Class: {student_info[1]}",
-                    style="Card.TLabel"
-                ).pack(pady=5)
-
-            # Timeline section
-            timeline_frame = ttk.Frame(self.current_page, style="Card.TFrame")
-            timeline_frame.pack(fill='both', expand=True, padx=20, pady=10)
-            
-            ttk.Label(
-                timeline_frame,
-                text="Upcoming Exams",
-                style="Title.TLabel"
-            ).pack(pady=10)
-
-            # Create Treeview for exams
-            columns = ('Title', 'Subject', 'Duration', 'Total Marks')
-            self.timeline_tree = ttk.Treeview(timeline_frame, columns=columns, show='headings', style="Timeline.Treeview")
-            
-            # Configure columns
-            for col in columns:
-                self.timeline_tree.heading(col, text=col)
-                self.timeline_tree.column(col, width=150)
-            
-            self.timeline_tree.pack(fill='both', expand=True, padx=10, pady=5)
-            
-            try:
-                # Fetch and display upcoming exams
-                cursor.execute("""
-                SELECT e.title, e.subject, e.duration, e.total_marks
-                FROM exams e
-                WHERE e.id NOT IN (
-                    SELECT r.exam_id
-                    FROM results r
-                    WHERE r.student_id = ?
-                )
-                """, (self.student_id,))
-                
-                upcoming_exams = cursor.fetchall()
-                
-                if upcoming_exams:
-                    for exam in upcoming_exams:
-                        self.timeline_tree.insert('', 'end', values=exam)
-                else:
-                    self.timeline_tree.insert('', 'end', values=('No upcoming exams', '', '', ''))
-                    
-            except sqlite3.OperationalError:
-                self.timeline_tree.insert('', 'end', values=('No exams available', '', '', ''))
-                
-        except Exception as e:
-            messagebox.showerror("Error", f"An error occurred: {str(e)}")
-        finally:
-            conn.close()
-
-    
     def show_available_exams(self):
-        self.clear_current_page()
-        self.current_page = ttk.Frame(self.content_frame, style="Content.TFrame")
-        self.current_page.pack(fill='both', expand=True)
+        """Show available exams and refresh the list"""
+        # Clear everything first
+        self.clear_content()
         
-        # Header with title
-        header_frame = ttk.Frame(self.current_page, style="Content.TFrame")
+        """Set up the exam list interface"""
+        # Create main container
+        main_container = ttk.Frame(self.content_frame, style="Content.TFrame")
+        main_container.pack(fill='both', expand=True, padx=30, pady=20)
+        
+        # Header
+        header_frame = ttk.Frame(main_container, style="Content.TFrame")
         header_frame.pack(fill='x', pady=(0, 20))
         
         ttk.Label(
@@ -272,72 +206,90 @@ class StudentDashboard:
             background=self.colors['content_bg']
         ).pack(side='left')
         
-        # Create Treeview for exams
-        columns = ('ID', 'Title', 'Subject', 'Duration (min)')
-        self.exam_tree = ttk.Treeview(
-            self.current_page,
-            columns=columns,
-            show='headings',
-            style="Timeline.Treeview",
-            height=15
-        )
-        
-        # Configure style for Treeview
+        # Configure Treeview style
         style = ttk.Style()
-        style.configure("Timeline.Treeview",
-            background=self.colors['content_bg'],
+        style.configure(
+            "Custom.Treeview",
+            background=self.colors['menu_bg'],
             foreground=self.colors['text'],
-            fieldbackground=self.colors['content_bg'],
-            rowheight=30
+            fieldbackground=self.colors['menu_bg'],
+            borderwidth=0,
+            font=('Segoe UI', 10)
         )
-        style.configure("Timeline.Treeview.Heading",
-            background=self.colors['primary'],
+        style.configure(
+            "Custom.Treeview.Heading",
+            background=self.colors['menu_bg'],
             foreground=self.colors['text'],
-            relief="flat"
+            borderwidth=1,
+            font=('Segoe UI', 10, 'bold')
         )
-        style.map("Timeline.Treeview",
-            background=[('selected', self.colors['primary'])],
+        style.map(
+            "Custom.Treeview",
+            background=[('selected', self.colors['accent1'])],
             foreground=[('selected', self.colors['text'])]
         )
         
+        # Create Treeview for exams
+        tree_frame = ttk.Frame(main_container, style="Card.TFrame")
+        tree_frame.pack(fill='both', expand=True)
+        
+        self.exam_tree = ttk.Treeview(
+            tree_frame,
+            columns=('ID', 'Title', 'Duration', 'Questions', 'Status'),
+            show='headings',
+            style='Custom.Treeview',
+            height=15
+        )
+        
         # Configure columns
-        column_widths = {
-            'ID': 80,
-            'Title': 300,
-            'Subject': 200,
-            'Duration (min)': 150
-        }
+        self.exam_tree.heading('ID', text='ID')
+        self.exam_tree.heading('Title', text='Title')
+        self.exam_tree.heading('Duration', text='Duration (min)')
+        self.exam_tree.heading('Questions', text='Questions')
+        self.exam_tree.heading('Status', text='Status')
         
-        for col, width in column_widths.items():
-            self.exam_tree.heading(col, text=col)
-            self.exam_tree.column(col, width=width, anchor='center')
+        self.exam_tree.column('ID', width=50, anchor='center')
+        self.exam_tree.column('Title', width=300, anchor='w')
+        self.exam_tree.column('Duration', width=100, anchor='center')
+        self.exam_tree.column('Questions', width=100, anchor='center')
+        self.exam_tree.column('Status', width=100, anchor='center')
         
-        # Add scrollbar
-        scrollbar = ttk.Scrollbar(self.current_page, orient='vertical', command=self.exam_tree.yview)
+        # Add scrollbar with matching colors
+        scrollbar = ttk.Scrollbar(
+            tree_frame, 
+            orient='vertical', 
+            command=self.exam_tree.yview,
+            style='Custom.Vertical.TScrollbar'
+        )
         self.exam_tree.configure(yscrollcommand=scrollbar.set)
         
-        # Pack the Treeview and scrollbar
-        self.exam_tree.pack(side='left', fill='both', expand=True, padx=20)
+        # Configure scrollbar style
+        style.configure(
+            "Custom.Vertical.TScrollbar",
+            background=self.colors['menu_bg'],
+            arrowcolor=self.colors['text'],
+            bordercolor=self.colors['menu_bg'],
+            troughcolor=self.colors['content_bg']
+        )
+        
+        self.exam_tree.pack(side='left', fill='both', expand=True)
         scrollbar.pack(side='right', fill='y')
         
+        # Load exams
+        self.load_available_exams()
+        
         # Add Start Exam button
-        button_frame = ttk.Frame(self.current_page, style="Content.TFrame")
-        button_frame.pack(fill='x', pady=20, padx=20)
+        button_frame = ttk.Frame(main_container, style="Content.TFrame")
+        button_frame.pack(fill='x', pady=20)
         
         ttk.Button(
             button_frame,
             text="Start Selected Exam",
-            style="MenuButton.TButton",
+            style="Custom.TButton",
             command=self.start_exam
         ).pack(side='right')
-        
-        # Fetch and display available exams
-        self.refresh_available_exams()
-        
-        # Bind double-click event
-        self.exam_tree.bind('<Double-1>', lambda e: self.start_exam())
-    
-    def refresh_available_exams(self):
+
+    def load_available_exams(self):
         # Clear existing items
         for item in self.exam_tree.get_children():
             self.exam_tree.delete(item)
@@ -348,22 +300,21 @@ class StudentDashboard:
         try:
             # Get exams that student hasn't taken yet
             cursor.execute("""
-                SELECT e.id, e.title, s.subject_name, e.duration
+                SELECT e.id, e.title, e.duration,
+                    (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id) as question_count
                 FROM exams e
-                JOIN subjects s ON e.subject_id = s.id
                 WHERE e.id NOT IN (
                     SELECT exam_id FROM results WHERE student_id = ?
                 )
-                ORDER BY e.id DESC
             """, (self.student_id,))
             
             exams = cursor.fetchall()
             
             if not exams:
-                # If no available exams, show this message
                 self.exam_tree.insert('', 'end', values=(
                     "-",
                     "No available exams",
+                    "-",
                     "-",
                     "-"
                 ))
@@ -371,17 +322,17 @@ class StudentDashboard:
             
             # Insert available exams into the tree
             for exam in exams:
-                exam_id, title, subject_name, duration = exam
+                exam_id, title, duration, question_count = exam
                 self.exam_tree.insert('', 'end', values=(
                     exam_id,
                     title,
-                    subject_name,
-                    duration
+                    duration,
+                    question_count,
+                    "Available"
                 ))
         
         except sqlite3.Error as e:
-            # Display a message box if a database error occurs
-            messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+            messagebox.showerror("Database Error", f"Error loading exams: {str(e)}")
         finally:
             conn.close()
 
@@ -390,7 +341,7 @@ class StudentDashboard:
         if self.current_page == "results":
             return
             
-        self.clear_current_page()
+        self.clear_content()
         self.current_page = ttk.Frame(self.content_frame, style="Content.TFrame")
         self.current_page.pack(fill='both', expand=True)
         
@@ -517,9 +468,10 @@ class StudentDashboard:
             pass
         finally:
             conn.close()
+
     
     def show_profile(self):
-        self.clear_current_page()
+        self.clear_content()
         self.current_page = ttk.Frame(self.content_frame, style="Content.TFrame")
         self.current_page.pack(fill='both', expand=True)
         
@@ -831,7 +783,7 @@ class StudentDashboard:
                     SELECT exam_id FROM results WHERE student_id = ?
                 )
             """, (self.student_id,))
-
+            
             for exam in cursor.fetchall():
                 self.exam_tree.insert("", "end", values=exam)
         except sqlite3.OperationalError:
@@ -864,93 +816,589 @@ class StudentDashboard:
             conn.close()
     
     def start_exam(self):
+        """Initialize and start the exam"""
         selection = self.exam_tree.selection()
         if not selection:
             messagebox.showerror("Error", "Please select an exam")
             return
-
-        exam_id = self.exam_tree.item(selection[0])['values'][0]
         
-        # Check if there are any questions for the selected exam
+        self.exam_id = self.exam_tree.item(selection[0])['values'][0]  # Set exam_id from selection
+        
+        # Load exam questions
         conn = sqlite3.connect('exam_system.db')
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM questions WHERE exam_id = ?", (exam_id,))
-        question_count = cursor.fetchone()[0]
-        conn.close()
         
-        if question_count == 0:
-            messagebox.showwarning("No Questions", "There are no questions for the selected exam.")
+        try:
+            # Get exam details
+            cursor.execute("SELECT title, duration FROM exams WHERE id = ?", (self.exam_id,))
+            exam_info = cursor.fetchone()
+            
+            if not exam_info:
+                messagebox.showerror("Error", "Exam not found")
+                return
+                
+            self.exam_title = exam_info[0]
+            self.duration = exam_info[1]
+            
+            # Get questions
+            cursor.execute("""
+                SELECT id, question, option_a, option_b, option_c, option_d, correct_answer
+                FROM questions
+                WHERE exam_id = ?
+                ORDER BY RANDOM()
+            """, (self.exam_id,))
+            
+            self.questions = cursor.fetchall()
+            
+            if not self.questions:
+                messagebox.showwarning("No Questions", "This exam has no questions yet.")
+                return
+            
+            # Set up exam UI
+            self.setup_exam_ui()
+            
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Error loading exam: {str(e)}")
+        finally:
+            conn.close()
+            
+    def load_questions(self):
+        try:
+            conn = sqlite3.connect('exam_system.db', timeout=20)
+            cursor = conn.cursor()
+            
+            # Get exam details
+            cursor.execute("""
+                SELECT title, duration 
+                FROM exams 
+                WHERE id = ?
+            """, (self.exam_id,))
+            
+            exam_info = cursor.fetchone()
+            if not exam_info:
+                messagebox.showerror("Error", "Exam not found")
+                conn.close()
+                return False
+                
+            self.exam_title = exam_info[0]
+            self.duration = exam_info[1]
+            self.remaining_time = self.duration * 60  # Convert to seconds
+            
+            # Get questions
+            cursor.execute("""
+                SELECT id, question, option_a, option_b, option_c, option_d, correct_answer
+                FROM questions
+                WHERE exam_id = ?
+                ORDER BY RANDOM()
+            """, (self.exam_id,))
+            
+            self.questions = cursor.fetchall()
+            conn.close()
+            
+            if not self.questions:
+                messagebox.showinfo("No Questions", "This exam has no questions yet.")
+                return False
+                
+            return True
+            
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Error loading questions: {str(e)}")
+            if 'conn' in locals():
+                conn.close()
+            return False
+
+    def setup_exam_ui(self):
+        # Clear current content
+        self.clear_content()
+        
+        # Create exam container
+        exam_container = ttk.Frame(self.content_frame, style="Content.TFrame")
+        exam_container.pack(fill='both', expand=True, padx=30, pady=20)
+        
+        # Header with exam title and timer
+        header_frame = ttk.Frame(exam_container, style="Content.TFrame")
+        header_frame.pack(fill='x', pady=(0, 20))
+        
+        ttk.Label(
+            header_frame,
+            text=self.exam_title,
+            font=('Segoe UI', 24, 'bold'),
+            foreground=self.colors['text'],
+            background=self.colors['content_bg']
+        ).pack(side='left')
+        
+        self.timer_label = ttk.Label(
+            header_frame,
+            text="Time Remaining: --:--",
+            font=('Segoe UI', 16),
+            foreground=self.colors['accent2'],
+            background=self.colors['content_bg']
+        )
+        self.timer_label.pack(side='right')
+        
+        # Question container
+        self.question_frame = ttk.Frame(exam_container, style="Card.TFrame")
+        self.question_frame.pack(fill='both', expand=True, pady=10)
+        
+        # Question number and text
+        self.question_label = ttk.Label(
+            self.question_frame,
+            text="",
+            font=('Segoe UI', 14),
+            foreground=self.colors['text'],
+            background=self.colors['menu_bg'],
+            wraplength=800
+        )
+        self.question_label.pack(pady=20, padx=20)
+        
+        # Options frame
+        self.options_frame = ttk.Frame(self.question_frame, style="Card.TFrame")
+        self.options_frame.pack(fill='x', padx=20, pady=10)
+        
+        # Radio variable for options
+        self.selected_option = tk.StringVar()
+        
+        # Navigation buttons
+        nav_frame = ttk.Frame(exam_container, style="Content.TFrame")
+        nav_frame.pack(fill='x', pady=20)
+        
+        self.prev_btn = ttk.Button(
+            nav_frame,
+            text="Previous",
+            style="Custom.TButton",
+            command=self.prev_question
+        )
+        self.prev_btn.pack(side='left')
+        
+        self.next_btn = ttk.Button(
+            nav_frame,
+            text="Next",
+            style="Custom.TButton",
+            command=self.next_question
+        )
+        self.next_btn.pack(side='right')
+        
+        self.submit_btn = ttk.Button(
+            nav_frame,
+            text="Submit Exam",
+            style="Custom.TButton",
+            command=self.show_review_dialog
+        )
+        self.submit_btn.pack(side='right', padx=10)
+        
+        # Start exam timer
+        self.start_timer()
+        
+        # Show first question
+        self.show_question(0)
+
+    def start_timer(self):
+        """Start the exam timer"""
+        if not self.timer_active:
+            self.remaining_time = self.duration * 60  # Convert minutes to seconds
+            self.timer_active = True
+            self.update_timer()
+
+    def update_timer(self):
+        """Update the timer display"""
+        if not hasattr(self, 'timer_label') or not self.timer_label.winfo_exists():
+            self.timer_active = False
+            return
+            
+        if self.timer_active and self.remaining_time > 0:
+            minutes = self.remaining_time // 60
+            seconds = self.remaining_time % 60
+            try:
+                self.timer_label.config(text=f"Time Remaining: {minutes:02d}:{seconds:02d}")
+                self.remaining_time -= 1
+                self.root.after(1000, self.update_timer)
+            except Exception:
+                self.timer_active = False
+        elif self.remaining_time <= 0:
+            self.timer_active = False
+            messagebox.showwarning("Time's Up!", "Your time is up! Submitting exam...")
+            self.submit_exam()
+
+
+    def show_question(self, index):
+        """Display the question at the given index"""
+        if 0 <= index < len(self.questions):
+            self.current_question = index
+            question = self.questions[index]
+            
+            # Update question text
+            self.question_label.config(
+                text=f"Question {index + 1} of {len(self.questions)}\n\n{question[1]}"
+            )
+            
+            # Clear previous options
+            for widget in self.options_frame.winfo_children():
+                widget.destroy()
+            
+            # Create new option buttons
+            options = [
+                ('A', question[2]),
+                ('B', question[3]),
+                ('C', question[4]),
+                ('D', question[5])
+            ]
+            
+            for opt_letter, opt_text in options:
+                option_frame = ttk.Frame(self.options_frame, style="Card.TFrame")
+                option_frame.pack(fill='x', pady=5)
+                
+                radio_btn = ttk.Radiobutton(
+                    option_frame,
+                    text=f"{opt_letter}. {opt_text}",
+                    variable=self.selected_option,
+                    value=opt_letter,
+                    style="Custom.TRadiobutton"
+                )
+                radio_btn.pack(pady=5, padx=10, anchor='w')
+            
+            # Set previously selected answer if any
+            if index in self.answers:
+                self.selected_option.set(self.answers[index])
+            else:
+                self.selected_option.set('')
+            
+            # Update navigation buttons
+            self.prev_btn.config(state='normal' if index > 0 else 'disabled')
+            self.next_btn.config(state='normal' if index < len(self.questions) - 1 else 'disabled')
+
+    def next_question(self):
+        """Save current answer and move to next question"""
+        self.save_answer()
+        if self.current_question < len(self.questions) - 1:
+            self.show_question(self.current_question + 1)
+
+    def prev_question(self):
+        """Save current answer and move to previous question"""
+        self.save_answer()
+        if self.current_question > 0:
+            self.show_question(self.current_question - 1)
+
+    def show_review_dialog(self):
+        self.save_answer()
+        self.clear_content()
+        
+        # Main review container with proper styling
+        review_container = ttk.Frame(self.content_frame, style="Content.TFrame")
+        review_container.pack(fill='both', expand=True, padx=30, pady=20)
+        
+        # Header with title
+        header_frame = ttk.Frame(review_container, style="Content.TFrame")
+        header_frame.pack(fill='x', pady=(0, 20))
+        
+        ttk.Label(
+            header_frame,
+            text="Review Your Answers",
+            font=('Segoe UI', 24, 'bold'),
+            foreground=self.colors['text'],
+            background=self.colors['content_bg']
+        ).pack(side='left')
+        
+        # Summary section with better styling
+        summary_frame = ttk.Frame(review_container, style="Card.TFrame")
+        summary_frame.pack(fill='x', pady=(0, 20))
+        
+        total = len(self.questions)
+        answered = len(self.answers)
+        unanswered = total - answered
+        
+        # Count correct and incorrect answers
+        correct_answers = 0
+        incorrect_answers = 0
+        for question in self.questions:
+            question_id = str(question[0])
+            correct_answer = question[-1]
+            student_answer = self.answers.get(question_id, "Not answered")
+            if student_answer == correct_answer:
+                correct_answers += 1
+            elif student_answer != "Not answered":
+                incorrect_answers += 1
+        
+        # Summary statistics with improved layout
+        stats_frame = ttk.Frame(summary_frame, style="Card.TFrame")
+        stats_frame.pack(fill='x', padx=20, pady=10)
+        
+        ttk.Label(
+            stats_frame,
+            text=f"Total Questions: {total}",
+            font=('Segoe UI', 12),
+            foreground=self.colors['text'],
+            background=self.colors['menu_bg']
+        ).pack(side='left', padx=20)
+        
+        ttk.Label(
+            stats_frame,
+            text=f"Answered: {answered}",
+            font=('Segoe UI', 12),
+            foreground=self.colors['success'],
+            background=self.colors['menu_bg']
+        ).pack(side='left', padx=20)
+        
+        ttk.Label(
+            stats_frame,
+            text=f"Unanswered: {unanswered}",
+            font=('Segoe UI', 12),
+            foreground=self.colors['error'],
+            background=self.colors['menu_bg']
+        ).pack(side='left', padx=20)
+        
+        ttk.Label(
+            stats_frame,
+            text=f"Correct Answers: {correct_answers}",
+            font=('Segoe UI', 12),
+            foreground=self.colors['success'],
+            background=self.colors['menu_bg']
+        ).pack(side='left', padx=20)
+        
+        ttk.Label(
+            stats_frame,
+            text=f"Incorrect Answers: {incorrect_answers}",
+            font=('Segoe UI', 12),
+            foreground=self.colors['error'],
+            background=self.colors['menu_bg']
+        ).pack(side='left', padx=20)
+        
+        # Split frame for correct and incorrect answers
+        split_frame = ttk.Frame(review_container, style="Content.TFrame")
+        split_frame.pack(fill='both', expand=True, pady=10)
+        
+        # Correct answers section
+        correct_canvas = tk.Canvas(split_frame, bg=self.colors['content_bg'])
+        correct_scrollbar = ttk.Scrollbar(split_frame, orient="vertical", command=correct_canvas.yview)
+        correct_frame = ttk.Frame(correct_canvas, style="SuccessCard.TFrame")
+        
+        correct_frame.bind(
+            "<Configure>",
+            lambda e: correct_canvas.configure(scrollregion=correct_canvas.bbox("all"))
+        )
+        
+        correct_canvas.create_window((0, 0), window=correct_frame, anchor="nw")
+        correct_canvas.configure(yscrollcommand=correct_scrollbar.set)
+        
+        correct_canvas.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=10)
+        correct_scrollbar.pack(side="left", fill="y")
+        
+        # Incorrect answers section
+        incorrect_canvas = tk.Canvas(split_frame, bg=self.colors['content_bg'])
+        incorrect_scrollbar = ttk.Scrollbar(split_frame, orient="vertical", command=incorrect_canvas.yview)
+        incorrect_frame = ttk.Frame(incorrect_canvas, style="ErrorCard.TFrame")
+        
+        incorrect_frame.bind(
+            "<Configure>",
+            lambda e: incorrect_canvas.configure(scrollregion=incorrect_canvas.bbox("all"))
+        )
+        
+        incorrect_canvas.create_window((0, 0), window=incorrect_frame, anchor="nw")
+        incorrect_canvas.configure(yscrollcommand=incorrect_scrollbar.set)
+        
+        incorrect_canvas.pack(side="right", fill="both", expand=True, padx=(0, 10), pady=10)
+        incorrect_scrollbar.pack(side="right", fill="y")
+        
+        # Add labels to correct and incorrect frames
+        ttk.Label(correct_frame, text="Correct Answers", style="Title.TLabel").pack(pady=10)
+        ttk.Label(incorrect_frame, text="Incorrect Answers", style="Title.TLabel").pack(pady=10)
+        
+        # Add questions to correct or incorrect frames
+        for i, question in enumerate(self.questions, 1):
+            is_answered = str(question[0]) in self.answers
+            student_answer = self.answers.get(str(question[0]), "Not answered")
+            correct_answer = question[-1]
+            options = {'A': question[2], 'B': question[3], 'C': question[4], 'D': question[5]}
+            
+            q_frame = ttk.Frame(correct_frame if student_answer == correct_answer else incorrect_frame, style="Card.TFrame")
+            q_frame.pack(fill='x', pady=10, padx=20)
+            
+            # Question header with status
+            status_color = self.colors['success'] if is_answered else self.colors['error']
+            status_text = "Answered" if is_answered else "Not Answered"
+            
+            ttk.Label(
+                q_frame,
+                text=f"Question {i} - {status_text}",
+                font=('Segoe UI', 12, 'bold'),
+                foreground=status_color,
+                background=self.colors['menu_bg']
+            ).pack(anchor='w', pady=5)
+            
+            # Question text
+            ttk.Label(
+                q_frame,
+                text=question[1],
+                font=('Segoe UI', 11),
+                foreground=self.colors['text'],
+                background=self.colors['menu_bg'],
+                wraplength=700
+            ).pack(anchor='w', pady=5)
+            
+            # Answer status
+            answer_text = f"Your Answer: {student_answer} - {options.get(student_answer, 'N/A')}"
+            correct_text = f"Correct Answer: {correct_answer} - {options.get(correct_answer, 'N/A')}"
+            
+            ttk.Label(
+                q_frame,
+                text=answer_text,
+                font=('Segoe UI', 11),
+                foreground=self.colors['success'] if student_answer == correct_answer else self.colors['error'],
+                background=self.colors['menu_bg']
+            ).pack(anchor='w', pady=5)
+            
+            if student_answer != correct_answer:
+                ttk.Label(
+                    q_frame,
+                    text=correct_text,
+                    font=('Segoe UI', 11),
+                    foreground=self.colors['success'],
+                    background=self.colors['menu_bg']
+                ).pack(anchor='w', pady=5)
+        
+        # Buttons frame with improved styling
+        button_frame = ttk.Frame(review_container, style="Content.TFrame")
+        button_frame.pack(fill='x', pady=20)
+        
+        # Warning message for unanswered questions
+        if unanswered > 0:
+            ttk.Label(
+                button_frame,
+                text=f"Warning: You have {unanswered} unanswered questions!",
+                font=('Segoe UI', 11),
+                foreground=self.colors['warning'],
+                background=self.colors['content_bg']
+            ).pack(pady=(0, 10))
+        
+        # Action buttons
+        buttons_container = ttk.Frame(button_frame, style="Content.TFrame")
+        buttons_container.pack()
+
+        ttk.Button(
+            buttons_container,
+            text="Submit Exam",
+            style="Custom.TButton",
+            command=self.submit_exam
+        ).pack(side='left', padx=10)
+        
+        # Style configurations for success and error frames
+        self.style.configure("SuccessCard.TFrame", background=self.colors['menu_bg'], borderwidth=2, relief="solid", bordercolor=self.colors['success'])
+        self.style.configure("ErrorCard.TFrame", background=self.colors['menu_bg'], borderwidth=2, relief="solid", bordercolor=self.colors['error'])
+
+    def submit_exam(self):
+        """Submit the exam and calculate results"""
+        if not messagebox.askyesno("Confirm Submission", "Are you sure you want to submit the exam?"):
             return
         
-        # Hide the dashboard window
-        self.root.withdraw()
+        # Stop the timer
+        self.timer_active = False
         
-        # Create exam window
-        exam_window = tk.Toplevel()
-        from exam_interface import ExamInterface
-        exam = ExamInterface(exam_window, self.student_id, exam_id)
+        # Calculate score based on correct answers
+        total_questions = len(self.questions)
+        correct_answers = 0
         
-        # When exam window is closed, show dashboard and refresh
-        exam_window.protocol("WM_DELETE_WINDOW", 
-                            lambda: [exam_window.destroy(), 
-                                    self.root.deiconify(),
-                                    self.refresh_exam_list(),
-                                    self.refresh_results()])
-
-    def init_database(self):
         conn = sqlite3.connect('exam_system.db')
         cursor = conn.cursor()
         
-        # Create users table if it doesn't exist
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL, -- Encrypted password
-                name TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                role TEXT CHECK(role IN ('Admin', 'Teacher', 'Student')) NOT NULL
-            )
-        ''')
+        try:
+            # Compare student's answers with correct answers from questions table
+            for question in self.questions:
+                question_id = question[0]
+                correct_answer = question[-1]  # Assuming correct_answer is stored as a letter ('A', 'B', 'C', 'D')
+                student_answer = self.answers.get(str(question_id))  # Get student's answer
+                # Count as correct only if student's answer matches the correct answer
+                if student_answer and student_answer == correct_answer:
+                    correct_answers += 1
+            
+            # Calculate percentage score
+            score = (correct_answers / total_questions) * 100 if total_questions > 0 else 0
 
-        # Create students table if it doesn't exist
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS students (
-                id INTEGER PRIMARY KEY,
-                class TEXT NOT NULL,
-                phone TEXT,
-                profile_pic BLOB,
-                bio TEXT,
-                FOREIGN KEY (id) REFERENCES users (id) ON DELETE CASCADE
-            )
-        ''')
+            # Get total marks for the exam
+            cursor.execute("SELECT total_marks FROM exams WHERE id = ?", (self.exam_id,))
+            total_marks = cursor.fetchone()[0]
+            # Save results to database
+            cursor.execute("""
+                INSERT INTO results (student_id, exam_id, score, date)
+                VALUES (?, ?, ?, datetime('now'))
+            """, (self.student_id, self.exam_id, score))
+            
+            conn.commit()
+            
+            # Show results page
+            self.show_result_page(score)
+            
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Failed to submit exam: {str(e)}")
+            conn.rollback()
+        finally:
+            conn.close()
 
-        # Create exams table if it doesn't exist
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS exams (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                subject TEXT NOT NULL,
-                duration INTEGER NOT NULL,
-                total_marks INTEGER NOT NULL
-            )
-        ''')
+    def show_result_page(self, score):
+        """Display the final exam results"""
+        self.clear_content()
+        
+        # Results container
+        results_container = ttk.Frame(self.content_frame, style="Content.TFrame")
+        results_container.pack(fill='both', expand=True, padx=30, pady=20)
+        
+        # Congratulations header
+        ttk.Label(
+            results_container,
+            text="Exam Completed!",
+            font=('Segoe UI', 28, 'bold'),
+            foreground=self.colors['text'],
+            background=self.colors['content_bg']
+        ).pack(pady=(0, 30))
+        
+        # Score display
+        score_frame = ttk.Frame(results_container, style="Card.TFrame")
+        score_frame.pack(fill='x', pady=20, padx=50)
+        
+        # Score color based on performance
+        score_color = self.colors['success'] if score >= 80 else \
+                    self.colors['accent1'] if score >= 60 else \
+                    self.colors['warning']
+        
+        ttk.Label(
+            score_frame,
+            text="Your Score",
+            font=('Segoe UI', 16),
+            foreground=self.colors['text'],
+            background=self.colors['menu_bg']
+        ).pack(pady=(20, 10))
+        
+        ttk.Label(
+            score_frame,
+            text=f"{score:.1f}%",
+            font=('Segoe UI', 48, 'bold'),
+            foreground=score_color,
+            background=self.colors['menu_bg']
+        ).pack(pady=(0, 20))
+        
+        # Performance message
+        message = "Excellent!" if score >= 80 else \
+                "Good job!" if score >= 60 else \
+                "Keep practicing!"
+        
+        ttk.Label(
+            score_frame,
+            text=message,
+            font=('Segoe UI', 14),
+            foreground=score_color,
+            background=self.colors['menu_bg']
+        ).pack(pady=(0, 20))
+        
+        # Return to exams button
+        ttk.Button(
+            results_container,
+            text="Return to Available Exams",
+            style="Custom.TButton",
+            command=self.show_available_exams
+        ).pack(pady=30)
 
-        # Create results table if it doesn't exist
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS results (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                student_id INTEGER,
-                exam_id INTEGER,
-                score INTEGER,
-                date DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (student_id) REFERENCES students(id),
-                FOREIGN KEY (exam_id) REFERENCES exams(id)
-            )
-        ''')
-
-        conn.commit()
-        conn.close()
+    def save_answer(self):
+        """Save the current answer to the answers dictionary"""
+        current_q_id = self.questions[self.current_question][0]
+        self.answers[str(current_q_id)] = self.selected_option.get()
 
     def generate_progress_report(self):
         conn = sqlite3.connect('exam_system.db')
@@ -1125,3 +1573,58 @@ class StudentDashboard:
             from main import UserTypeSelection
             UserTypeSelection(root)
             root.mainloop()
+
+    def init_database(self):
+        conn = sqlite3.connect('exam_system.db')
+        cursor = conn.cursor()
+        
+        # Create users table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL, -- Encrypted password
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                role TEXT CHECK(role IN ('Admin', 'Teacher', 'Student')) NOT NULL
+            )
+        ''')
+
+        # Create students table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS students (
+                id INTEGER PRIMARY KEY,
+                class TEXT NOT NULL,
+                phone TEXT,
+                profile_pic BLOB,
+                bio TEXT,
+                FOREIGN KEY (id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        ''')
+
+        # Create exams table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS exams (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                duration INTEGER NOT NULL,
+                total_marks INTEGER NOT NULL
+            )
+        ''')
+
+        # Create results table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id INTEGER,
+                exam_id INTEGER,
+                score INTEGER,
+                date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (student_id) REFERENCES students(id),
+                FOREIGN KEY (exam_id) REFERENCES exams(id)
+            )
+        ''')
+
+        conn.commit()
+        conn.close()

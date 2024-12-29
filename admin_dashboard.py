@@ -1386,7 +1386,7 @@ class AdminDashboard:
             ttk.Radiobutton(answer_frame,
                             text=label,
                             variable=self.correct_var,
-                            value=str(i+1),
+                            value=label,  # Use the string value directly
                             style="Custom.TRadiobutton").pack(side='left', padx=10)
         
         # Add button
@@ -1397,7 +1397,7 @@ class AdminDashboard:
         back_button = ttk.Button(page_frame, text="Back", command=self.show_questions_page)  # Going back to question list
         back_button.pack(pady=10)
             
-        
+
     def add_question_to_database(self, exam_var, question_text, option_entries, correct_var):
         exam_id = exam_var.get().split('-')[0].strip()
         question = question_text.get("1.0", tk.END).strip()
@@ -1415,7 +1415,7 @@ class AdminDashboard:
             cursor.execute('''
                 INSERT INTO questions (exam_id, question, option_a, option_b, option_c, option_d, correct_answer)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (exam_id, question, options[0], options[1], options[2], options[3], correct))
+            ''', (exam_id, question, options[0], options[1], options[2], options[3], correct))  # Insert options and correct answer as strings
 
             conn.commit()
             messagebox.showinfo("Success", "Question added successfully!")
@@ -1425,6 +1425,7 @@ class AdminDashboard:
             messagebox.showerror("Error", f"An error occurred: {e}")
         finally:
             conn.close()
+
 
     def edit_question(self):
         selected_item = self.question_tree.selection()
@@ -1534,7 +1535,7 @@ class AdminDashboard:
             ttk.Radiobutton(answer_frame,
                         text=label,
                         variable=self.correct_var,
-                        value=str(i+1),
+                        value=label,
                         style="Custom.TRadiobutton").pack(side='left', padx=10)
 
         self.correct_var.set(current_correct)
