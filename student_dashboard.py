@@ -982,7 +982,7 @@ class StudentDashboard:
             nav_frame,
             text="Submit Exam",
             style="Custom.TButton",
-            command=self.show_review_dialog
+            command=self.submit_exam
         )
         self.submit_btn.pack(side='right', padx=10)
         
@@ -1079,7 +1079,6 @@ class StudentDashboard:
             self.show_question(self.current_question - 1)
 
     def show_review_dialog(self):
-        self.save_answer()
         self.clear_content()
         
         # Main review container with proper styling
@@ -1275,9 +1274,9 @@ class StudentDashboard:
 
         ttk.Button(
             buttons_container,
-            text="Submit Exam",
+            text="Return To Available Exam",
             style="Custom.TButton",
-            command=self.submit_exam
+            command=self.show_available_exams
         ).pack(side='left', padx=10)
         
         # Style configurations for success and error frames
@@ -1285,6 +1284,7 @@ class StudentDashboard:
         self.style.configure("ErrorCard.TFrame", background=self.colors['menu_bg'], borderwidth=2, relief="solid", bordercolor=self.colors['error'])
 
     def submit_exam(self):
+        self.save_answer()
         """Submit the exam and calculate results"""
         if not messagebox.askyesno("Confirm Submission", "Are you sure you want to submit the exam?"):
             return
@@ -1390,9 +1390,9 @@ class StudentDashboard:
         # Return to exams button
         ttk.Button(
             results_container,
-            text="Return to Available Exams",
+            text="Review Questions",
             style="Custom.TButton",
-            command=self.show_available_exams
+            command=self.show_review_dialog
         ).pack(pady=30)
 
     def save_answer(self):
